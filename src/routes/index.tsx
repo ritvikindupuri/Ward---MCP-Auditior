@@ -16,7 +16,6 @@ function Landing() {
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
       <Nav />
       <Hero />
-      <Console />
       <Footer />
     </div>
   );
