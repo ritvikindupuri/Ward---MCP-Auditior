@@ -229,6 +229,14 @@ function Hero() {
           </Link>
         </div>
       </div>
+
+      <div className="relative mx-auto mt-20 max-w-6xl px-6">
+        <div className="relative rounded-3xl glass ring-hairline overflow-hidden">
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,oklch(1_0_0_/_0.04),transparent_30%)]" />
+          <DeviceFrame />
+        </div>
+        <div className="pointer-events-none absolute -inset-x-12 -bottom-12 h-40 bg-[radial-gradient(50%_100%_at_50%_0%,oklch(0.72_0.16_35_/_0.22),transparent_70%)] blur-2xl" />
+      </div>
     </section>
   );
 }
