@@ -145,12 +145,12 @@ function Hero() {
         </p>
 
         <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-          <a href="#cta" className="group inline-flex h-11 items-center rounded-full bg-foreground text-background px-5 text-[14px] font-medium hover:opacity-90 transition">
+          <a href="mailto:access@adversa.dev" className="group inline-flex h-11 items-center rounded-full bg-foreground text-background px-5 text-[14px] font-medium hover:opacity-90 transition">
             Request early access
             <span className="ml-2 transition-transform group-hover:translate-x-0.5">→</span>
           </a>
-          <a href="#console" className="inline-flex h-11 items-center rounded-full glass px-5 text-[14px] hover:bg-surface-2/60 transition">
-            See it in motion
+          <a href="#console" className="inline-flex h-11 items-center rounded-full px-5 text-[14px] text-muted-foreground hover:text-foreground transition">
+            See it in motion →
           </a>
         </div>
 
