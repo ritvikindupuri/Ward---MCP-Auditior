@@ -49,14 +49,13 @@ function Nav() {
           <a href="#capabilities" className="hover:text-foreground transition">Capabilities</a>
           <a href="#console" className="hover:text-foreground transition">Console</a>
           <a href="#workflow" className="hover:text-foreground transition">Workflow</a>
-          <a href="#pricing" className="hover:text-foreground transition">Pricing</a>
           <a href="#docs" className="hover:text-foreground transition">Docs</a>
         </nav>
         <div className="flex items-center gap-2">
           <a href="#" className="hidden sm:inline-flex h-8 px-3 items-center text-[13px] text-muted-foreground hover:text-foreground transition">
             Sign in
           </a>
-          <a href="#cta" className="inline-flex h-8 items-center rounded-full bg-foreground text-background px-3.5 text-[13px] font-medium hover:opacity-90 transition">
+          <a href="mailto:access@adversa.dev" className="inline-flex h-8 items-center rounded-full bg-foreground text-background px-3.5 text-[13px] font-medium hover:opacity-90 transition">
             Request access
           </a>
         </div>
