@@ -16,8 +16,104 @@ function Landing() {
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
       <Nav />
       <Hero />
+      <HowItWorks />
+      <Principles />
+      <ClosingCTA />
       <Footer />
     </div>
+  );
+}
+
+function HowItWorks() {
+  const steps = [
+    {
+      n: "01",
+      title: "Connect",
+      body: "Point Adversa at your agent endpoint. Any framework, any model.",
+    },
+    {
+      n: "02",
+      title: "Provoke",
+      body: "Run adversarial suites — prompt injection, tool misuse, context drift.",
+    },
+    {
+      n: "03",
+      title: "Resolve",
+      body: "Inspect traces, reproduce failures, ship hardened agents.",
+    },
+  ];
+  return (
+    <section id="how" className="relative py-32 border-t hairline">
+      <div className="mx-auto max-w-5xl px-6">
+        <div className="max-w-2xl">
+          <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground/70">How it works</div>
+          <h2 className="mt-4 text-[clamp(2rem,5vw,3.5rem)] leading-[1.02] tracking-[-0.035em] font-semibold text-balance">
+            Three steps. <span className="font-serif italic font-normal text-muted-foreground">Zero theatre.</span>
+          </h2>
+        </div>
+        <div className="mt-16 grid gap-px bg-border/40 sm:grid-cols-3 rounded-2xl overflow-hidden hairline border">
+          {steps.map((s) => (
+            <div key={s.n} className="bg-background p-8">
+              <div className="text-[12px] tabular-nums text-accent">{s.n}</div>
+              <div className="mt-6 text-[18px] font-medium tracking-tight">{s.title}</div>
+              <p className="mt-2 text-[14px] leading-relaxed text-muted-foreground">{s.body}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Principles() {
+  const items = [
+    { k: "Deterministic", v: "Seeded runs. Reproducible failures." },
+    { k: "Framework-agnostic", v: "OpenAI, Anthropic, custom — all welcome." },
+    { k: "Trace-first", v: "Every tool call, every token, captured." },
+    { k: "Private by default", v: "Your data never trains anyone's model." },
+  ];
+  return (
+    <section className="relative py-32 border-t hairline">
+      <div className="mx-auto max-w-5xl px-6 grid gap-16 md:grid-cols-2">
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground/70">Principles</div>
+          <h2 className="mt-4 text-[clamp(2rem,5vw,3.5rem)] leading-[1.02] tracking-[-0.035em] font-semibold text-balance">
+            Built for teams who <span className="font-serif italic font-normal text-muted-foreground">ship.</span>
+          </h2>
+        </div>
+        <dl className="space-y-8">
+          {items.map((i) => (
+            <div key={i.k} className="border-b hairline pb-6 last:border-0">
+              <dt className="text-[15px] font-medium tracking-tight">{i.k}</dt>
+              <dd className="mt-1.5 text-[14px] text-muted-foreground">{i.v}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    </section>
+  );
+}
+
+function ClosingCTA() {
+  return (
+    <section className="relative py-40 border-t hairline overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 -z-10">
+        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[500px] aurora opacity-30 animate-drift" />
+      </div>
+      <div className="mx-auto max-w-3xl px-6 text-center">
+        <h2 className="text-[clamp(2.25rem,6vw,4.5rem)] leading-[0.98] tracking-[-0.04em] font-semibold text-balance">
+          Start breaking <span className="font-serif italic font-normal text-muted-foreground">things.</span>
+        </h2>
+        <div className="mt-10 flex items-center justify-center">
+          <Link
+            to="/sign-up"
+            className="inline-flex h-11 items-center rounded-full bg-foreground text-background px-6 text-[14px] font-medium hover:opacity-90 transition"
+          >
+            Get started
+          </Link>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -123,23 +219,15 @@ function Hero() {
           A stress-testing platform for AI agents.
         </p>
 
-        <div className="mt-10 flex items-center justify-center">
-          <a
-            href="#console"
+        <div className="mt-10 flex items-center justify-center gap-2">
+          <Link
+            to="/sign-in"
             className="group inline-flex h-11 items-center rounded-full px-5 text-[14px] text-foreground/80 hover:text-foreground transition"
           >
             See it in motion
             <span className="ml-2 transition-transform group-hover:translate-x-0.5">→</span>
-          </a>
+          </Link>
         </div>
-      </div>
-
-      <div className="relative mx-auto mt-20 max-w-6xl px-6">
-        <div className="relative rounded-3xl glass ring-hairline overflow-hidden">
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,oklch(1_0_0_/_0.04),transparent_30%)]" />
-          <DeviceFrame />
-        </div>
-        <div className="pointer-events-none absolute -inset-x-12 -bottom-12 h-40 bg-[radial-gradient(50%_100%_at_50%_0%,oklch(0.72_0.16_35_/_0.22),transparent_70%)] blur-2xl" />
       </div>
     </section>
   );
