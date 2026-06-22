@@ -64,12 +64,53 @@ function Nav() {
   );
 }
 
-function Mark() {
+function Mark({ size = 22 }: { size?: number }) {
+  // Unique mark: rotated square (adversary's lens) bisected by a thin
+  // accent thread (the attack vector), with a hot pinprick at the center.
   return (
-    <span className="relative inline-flex h-6 w-6 items-center justify-center">
-      <span className="absolute inset-0 rounded-md bg-foreground/90" />
-      <span className="absolute inset-[3px] rounded-[5px] bg-background" />
-      <span className="relative h-1.5 w-1.5 rounded-full bg-accent shadow-[0_0_12px_2px_var(--accent)]" />
+    <span
+      className="relative inline-flex items-center justify-center"
+      style={{ width: size, height: size }}
+      aria-hidden
+    >
+      <svg viewBox="0 0 32 32" width={size} height={size} className="overflow-visible">
+        <defs>
+          <linearGradient id="mk-edge" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="currentColor" stopOpacity="0.95" />
+            <stop offset="100%" stopColor="currentColor" stopOpacity="0.55" />
+          </linearGradient>
+        </defs>
+        {/* outer diamond */}
+        <rect
+          x="6" y="6" width="20" height="20" rx="3"
+          transform="rotate(45 16 16)"
+          fill="none"
+          stroke="url(#mk-edge)"
+          strokeWidth="1.5"
+        />
+        {/* inner diamond */}
+        <rect
+          x="11" y="11" width="10" height="10" rx="1.5"
+          transform="rotate(45 16 16)"
+          fill="none"
+          stroke="currentColor"
+          strokeOpacity="0.35"
+          strokeWidth="1"
+        />
+        {/* attack thread */}
+        <line
+          x1="2" y1="16" x2="30" y2="16"
+          stroke="var(--accent)"
+          strokeWidth="1.25"
+          strokeLinecap="round"
+        />
+        {/* core */}
+        <circle cx="16" cy="16" r="1.6" fill="var(--accent)" />
+      </svg>
+      <span
+        className="absolute h-[3px] w-[3px] rounded-full"
+        style={{ background: "var(--accent)", boxShadow: "0 0 10px 2px var(--accent)" }}
+      />
     </span>
   );
 }
