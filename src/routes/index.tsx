@@ -21,8 +21,6 @@ function Landing() {
       <Console />
       <Metrics />
       <Workflow />
-      <Pricing />
-      <CTA />
       <Footer />
     </div>
   );
@@ -51,14 +49,13 @@ function Nav() {
           <a href="#capabilities" className="hover:text-foreground transition">Capabilities</a>
           <a href="#console" className="hover:text-foreground transition">Console</a>
           <a href="#workflow" className="hover:text-foreground transition">Workflow</a>
-          <a href="#pricing" className="hover:text-foreground transition">Pricing</a>
           <a href="#docs" className="hover:text-foreground transition">Docs</a>
         </nav>
         <div className="flex items-center gap-2">
           <a href="#" className="hidden sm:inline-flex h-8 px-3 items-center text-[13px] text-muted-foreground hover:text-foreground transition">
             Sign in
           </a>
-          <a href="#cta" className="inline-flex h-8 items-center rounded-full bg-foreground text-background px-3.5 text-[13px] font-medium hover:opacity-90 transition">
+          <a href="mailto:access@adversa.dev" className="inline-flex h-8 items-center rounded-full bg-foreground text-background px-3.5 text-[13px] font-medium hover:opacity-90 transition">
             Request access
           </a>
         </div>
@@ -67,12 +64,53 @@ function Nav() {
   );
 }
 
-function Mark() {
+function Mark({ size = 22 }: { size?: number }) {
+  // Unique mark: rotated square (adversary's lens) bisected by a thin
+  // accent thread (the attack vector), with a hot pinprick at the center.
   return (
-    <span className="relative inline-flex h-6 w-6 items-center justify-center">
-      <span className="absolute inset-0 rounded-md bg-foreground/90" />
-      <span className="absolute inset-[3px] rounded-[5px] bg-background" />
-      <span className="relative h-1.5 w-1.5 rounded-full bg-accent shadow-[0_0_12px_2px_var(--accent)]" />
+    <span
+      className="relative inline-flex items-center justify-center"
+      style={{ width: size, height: size }}
+      aria-hidden
+    >
+      <svg viewBox="0 0 32 32" width={size} height={size} className="overflow-visible">
+        <defs>
+          <linearGradient id="mk-edge" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="currentColor" stopOpacity="0.95" />
+            <stop offset="100%" stopColor="currentColor" stopOpacity="0.55" />
+          </linearGradient>
+        </defs>
+        {/* outer diamond */}
+        <rect
+          x="6" y="6" width="20" height="20" rx="3"
+          transform="rotate(45 16 16)"
+          fill="none"
+          stroke="url(#mk-edge)"
+          strokeWidth="1.5"
+        />
+        {/* inner diamond */}
+        <rect
+          x="11" y="11" width="10" height="10" rx="1.5"
+          transform="rotate(45 16 16)"
+          fill="none"
+          stroke="currentColor"
+          strokeOpacity="0.35"
+          strokeWidth="1"
+        />
+        {/* attack thread */}
+        <line
+          x1="2" y1="16" x2="30" y2="16"
+          stroke="var(--accent)"
+          strokeWidth="1.25"
+          strokeLinecap="round"
+        />
+        {/* core */}
+        <circle cx="16" cy="16" r="1.6" fill="var(--accent)" />
+      </svg>
+      <span
+        className="absolute h-[3px] w-[3px] rounded-full"
+        style={{ background: "var(--accent)", boxShadow: "0 0 10px 2px var(--accent)" }}
+      />
     </span>
   );
 }
@@ -107,12 +145,12 @@ function Hero() {
         </p>
 
         <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-          <a href="#cta" className="group inline-flex h-11 items-center rounded-full bg-foreground text-background px-5 text-[14px] font-medium hover:opacity-90 transition">
+          <a href="mailto:access@adversa.dev" className="group inline-flex h-11 items-center rounded-full bg-foreground text-background px-5 text-[14px] font-medium hover:opacity-90 transition">
             Request early access
             <span className="ml-2 transition-transform group-hover:translate-x-0.5">→</span>
           </a>
-          <a href="#console" className="inline-flex h-11 items-center rounded-full glass px-5 text-[14px] hover:bg-surface-2/60 transition">
-            See it in motion
+          <a href="#console" className="inline-flex h-11 items-center rounded-full px-5 text-[14px] text-muted-foreground hover:text-foreground transition">
+            See it in motion →
           </a>
         </div>
 
@@ -503,120 +541,6 @@ function Workflow() {
             </div>
           ))}
         </div>
-      </div>
-    </section>
-  );
-}
-
-function Pricing() {
-  const tiers = [
-    {
-      name: "Starter",
-      price: "Free",
-      tag: "For solo builders",
-      features: ["1 agent", "500 scenarios / month", "Public suite library", "Community support"],
-      cta: "Start",
-      featured: false,
-    },
-    {
-      name: "Team",
-      price: "$480",
-      tag: "/ month",
-      features: ["10 agents", "50,000 scenarios / month", "Private suites & CI guard", "Slack + email support"],
-      cta: "Start trial",
-      featured: true,
-    },
-    {
-      name: "Enterprise",
-      price: "Custom",
-      tag: "SOC 2 · self-hosted",
-      features: ["Unlimited agents", "Dedicated cluster", "Custom adversaries", "Solutions engineer"],
-      cta: "Talk to us",
-      featured: false,
-    },
-  ];
-  return (
-    <section id="pricing" className="py-32 border-t hairline">
-      <div className="mx-auto max-w-7xl px-6">
-        <SectionHeader
-          eyebrow="Pricing"
-          title={<>Honest pricing. <span className="font-serif italic text-muted-foreground">Scales with runs, not seats.</span></>}
-        />
-        <div className="mt-16 grid md:grid-cols-3 gap-4">
-          {tiers.map((t) => (
-            <div
-              key={t.name}
-              className={`relative rounded-2xl p-8 ring-hairline ${
-                t.featured ? "bg-surface" : "bg-background border hairline"
-              }`}
-            >
-              {t.featured && (
-                <div className="absolute -top-3 left-8 inline-flex items-center rounded-full bg-accent text-accent-foreground px-2.5 py-1 text-[11px] font-medium tracking-wide">
-                  Most chosen
-                </div>
-              )}
-              <div className="text-[14px] text-muted-foreground">{t.name}</div>
-              <div className="mt-4 flex items-baseline gap-2">
-                <span className="text-[40px] tracking-[-0.03em] font-semibold">{t.price}</span>
-                <span className="text-[13px] text-muted-foreground">{t.tag}</span>
-              </div>
-              <ul className="mt-8 space-y-3 text-[14px]">
-                {t.features.map((f) => (
-                  <li key={f} className="flex items-start gap-3 text-muted-foreground">
-                    <span className="mt-2 h-1 w-1 rounded-full bg-accent shrink-0" />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              <a
-                href="#cta"
-                className={`mt-10 inline-flex h-10 w-full items-center justify-center rounded-full text-[13.5px] font-medium transition ${
-                  t.featured
-                    ? "bg-foreground text-background hover:opacity-90"
-                    : "glass hover:bg-surface-2/60"
-                }`}
-              >
-                {t.cta}
-              </a>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function CTA() {
-  return (
-    <section id="cta" className="py-32 relative grain">
-      <div className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[500px] aurora opacity-50 animate-drift" />
-      </div>
-      <div className="mx-auto max-w-3xl px-6 text-center">
-        <h2 className="text-[clamp(2.25rem,5vw,4rem)] leading-[1] tracking-[-0.035em] font-semibold text-balance">
-          Ship agents you can <span className="font-serif italic text-muted-foreground">trust at 3 a.m.</span>
-        </h2>
-        <p className="mt-6 text-[16px] text-muted-foreground max-w-xl mx-auto">
-          Early access opens in weekly batches. Tell us what your agent does — we'll write the first adversarial suite for you.
-        </p>
-        <form
-          className="mx-auto mt-10 flex w-full max-w-md items-center gap-2 rounded-full glass p-1.5"
-          onSubmit={(e) => e.preventDefault()}
-        >
-          <input
-            type="email"
-            required
-            placeholder="you@company.com"
-            className="flex-1 bg-transparent px-4 py-2 text-[14px] outline-none placeholder:text-muted-foreground/60"
-          />
-          <button
-            type="submit"
-            className="h-9 rounded-full bg-foreground text-background px-4 text-[13px] font-medium hover:opacity-90 transition"
-          >
-            Request access
-          </button>
-        </form>
-        <p className="mt-4 text-[12px] text-muted-foreground/70">No spam. We reply within 48 hours.</p>
       </div>
     </section>
   );
