@@ -21,8 +21,6 @@ function Landing() {
       <Console />
       <Metrics />
       <Workflow />
-      <Pricing />
-      <CTA />
       <Footer />
     </div>
   );
