@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Mark } from "./index";
 
 export const Route = createFileRoute("/sign-in")({
@@ -17,6 +17,7 @@ function SignIn() {
 
 export function AuthShell({ mode }: { mode: "signin" | "signup" }) {
   const isSignup = mode === "signup";
+  const navigate = useNavigate();
   return (
     <div className="min-h-screen bg-background text-foreground grain relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0 -z-10">
@@ -51,6 +52,7 @@ export function AuthShell({ mode }: { mode: "signin" | "signup" }) {
             className="mt-10 space-y-3"
             onSubmit={(e) => {
               e.preventDefault();
+              navigate({ to: "/" });
             }}
           >
             {isSignup && <Field label="Name" type="text" placeholder="Ada Lovelace" />}
