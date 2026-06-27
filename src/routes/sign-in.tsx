@@ -1,5 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 import { Mark } from "./index";
+import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable";
 
 export const Route = createFileRoute("/sign-in")({
   head: () => ({
@@ -8,16 +11,60 @@ export const Route = createFileRoute("/sign-in")({
       { name: "description", content: "Sign in to Adversa." },
     ],
   }),
-  component: SignIn,
+  component: () => <AuthShell mode="signin" />,
 });
-
-function SignIn() {
-  return <AuthShell mode="signin" />;
-}
 
 export function AuthShell({ mode }: { mode: "signin" | "signup" }) {
   const isSignup = mode === "signup";
   const navigate = useNavigate();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      if (isSignup) {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/`,
+            data: { name },
+          },
+        });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+      }
+      navigate({ to: "/" });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function onGoogle() {
+    setError(null);
+    setLoading(true);
+    const result = await lovable.auth.signInWithOAuth("google", {
+      redirect_uri: window.location.origin,
+    });
+    if (result.error) {
+      setError(result.error instanceof Error ? result.error.message : "Google sign-in failed");
+      setLoading(false);
+      return;
+    }
+    if (result.redirected) return;
+    navigate({ to: "/" });
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground grain relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0 -z-10">
@@ -48,22 +95,39 @@ export function AuthShell({ mode }: { mode: "signin" | "signup" }) {
             {isSignup ? "Start stress-testing in minutes." : "Sign in to your workspace."}
           </p>
 
-          <form
-            className="mt-10 space-y-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              navigate({ to: "/" });
-            }}
+          <button
+            type="button"
+            onClick={onGoogle}
+            disabled={loading}
+            className="mt-8 w-full h-11 rounded-full glass hairline border text-[14px] font-medium hover:bg-surface-2 transition flex items-center justify-center gap-2 disabled:opacity-50"
           >
-            {isSignup && <Field label="Name" type="text" placeholder="Ada Lovelace" />}
-            <Field label="Email" type="email" placeholder="you@company.com" />
-            <Field label="Password" type="password" placeholder="••••••••" />
+            <GoogleIcon />
+            Continue with Google
+          </button>
+
+          <div className="my-6 flex items-center gap-3 text-[11px] uppercase tracking-[0.18em] text-muted-foreground/60">
+            <span className="h-px flex-1 bg-border" />
+            or
+            <span className="h-px flex-1 bg-border" />
+          </div>
+
+          <form className="space-y-3" onSubmit={onSubmit}>
+            {isSignup && (
+              <Field label="Name" type="text" placeholder="Ada Lovelace" value={name} onChange={setName} />
+            )}
+            <Field label="Email" type="email" placeholder="you@company.com" value={email} onChange={setEmail} />
+            <Field label="Password" type="password" placeholder="••••••••" value={password} onChange={setPassword} />
+
+            {error && (
+              <p className="text-[12.5px] text-destructive">{error}</p>
+            )}
 
             <button
               type="submit"
-              className="mt-2 w-full h-11 rounded-full bg-foreground text-background text-[14px] font-medium hover:opacity-90 transition"
+              disabled={loading}
+              className="mt-2 w-full h-11 rounded-full bg-foreground text-background text-[14px] font-medium hover:opacity-90 transition disabled:opacity-50"
             >
-              {isSignup ? "Create account" : "Sign in"}
+              {loading ? "…" : isSignup ? "Create account" : "Sign in"}
             </button>
           </form>
 
@@ -90,7 +154,19 @@ export function AuthShell({ mode }: { mode: "signin" | "signup" }) {
   );
 }
 
-function Field({ label, type, placeholder }: { label: string; type: string; placeholder: string }) {
+function Field({
+  label,
+  type,
+  placeholder,
+  value,
+  onChange,
+}: {
+  label: string;
+  type: string;
+  placeholder: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
   return (
     <label className="block">
       <span className="block text-[11px] uppercase tracking-[0.18em] text-muted-foreground/70 mb-1.5">
@@ -100,8 +176,18 @@ function Field({ label, type, placeholder }: { label: string; type: string; plac
         type={type}
         required
         placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
         className="w-full h-11 rounded-xl glass px-4 text-[14px] outline-none placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-ring transition"
       />
     </label>
+  );
+}
+
+function GoogleIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden>
+      <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.24 1.4-1.7 4.1-5.5 4.1-3.3 0-6-2.7-6-6.1s2.7-6.1 6-6.1c1.9 0 3.1.8 3.8 1.5l2.6-2.5C16.7 3.3 14.6 2.4 12 2.4 6.7 2.4 2.4 6.7 2.4 12s4.3 9.6 9.6 9.6c5.5 0 9.2-3.9 9.2-9.4 0-.6-.1-1.1-.2-1.6H12z" />
+    </svg>
   );
 }
