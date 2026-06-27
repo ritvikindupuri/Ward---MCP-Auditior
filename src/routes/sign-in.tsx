@@ -52,6 +52,7 @@ export function AuthShell({ mode }: { mode: "signin" | "signup" }) {
             className="mt-10 space-y-3"
             onSubmit={(e) => {
               e.preventDefault();
+              navigate({ to: "/" });
             }}
           >
             {isSignup && <Field label="Name" type="text" placeholder="Ada Lovelace" />}
