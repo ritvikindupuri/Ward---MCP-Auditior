@@ -17,6 +17,7 @@ function SignIn() {
 
 export function AuthShell({ mode }: { mode: "signin" | "signup" }) {
   const isSignup = mode === "signup";
+  const navigate = useNavigate();
   return (
     <div className="min-h-screen bg-background text-foreground grain relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0 -z-10">
