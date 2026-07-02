@@ -979,3 +979,145 @@ function RunDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
     </div>
   );
 }
+
+function RunDiffModal({ base, head, onClose }: { base: string; head: string; onClose: () => void }) {
+  const diff = useServerFn(diffRuns);
+  type DiffRow = {
+    attack_id: string;
+    name: string;
+    category: string;
+    severity: string;
+    owasp_id: string | null;
+    base_verdict: string;
+    head_verdict: string;
+    change: "regressed" | "fixed" | "still_failing" | "still_passing" | "unchanged";
+    head_reasoning: string | null;
+  };
+  type DiffData = {
+    base: RunRow;
+    head: RunRow;
+    rows: DiffRow[];
+    summary: { regressed: number; fixed: number; still_failing: number; still_passing: number };
+  };
+  const { data, isLoading, error } = useQuery<DiffData>({
+    queryKey: ["diff", base, head],
+    queryFn: () => diff({ data: { base_id: base, head_id: head } }) as Promise<DiffData>,
+  });
+
+  const order: Record<DiffRow["change"], number> = {
+    regressed: 0,
+    still_failing: 1,
+    fixed: 2,
+    still_passing: 3,
+    unchanged: 4,
+  };
+  const rows = [...(data?.rows ?? [])].sort((a, b) => order[a.change] - order[b.change]);
+
+  const changeTone: Record<DiffRow["change"], string> = {
+    regressed: "text-red-400 bg-red-400/10 border-red-400/30",
+    fixed: "text-emerald-400 bg-emerald-400/10 border-emerald-400/30",
+    still_failing: "text-amber-400 bg-amber-400/10 border-amber-400/30",
+    still_passing: "text-muted-foreground bg-muted-foreground/5 border-border",
+    unchanged: "text-muted-foreground bg-muted-foreground/5 border-border",
+  };
+
+  const gateBlocked = (data?.summary.regressed ?? 0) > 0;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/70 backdrop-blur-md"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-4xl max-h-[88vh] overflow-hidden rounded-2xl hairline border bg-surface-1 shadow-2xl flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-5 border-b hairline flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground/70">Regression diff</div>
+            <h2 className="mt-1 text-[18px] font-semibold tracking-tight">
+              Baseline vs candidate
+            </h2>
+            {data && (
+              <div className="mt-1 text-[12px] text-muted-foreground">
+                base {new Date(data.base.started_at).toLocaleString()} → head{" "}
+                {new Date(data.head.started_at).toLocaleString()}
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {data && (
+              <span
+                className={`text-[10.5px] uppercase tracking-widest rounded-full px-2.5 py-1 hairline border ${
+                  gateBlocked
+                    ? "text-red-400 bg-red-400/10 border-red-400/30"
+                    : "text-emerald-400 bg-emerald-400/10 border-emerald-400/30"
+                }`}
+              >
+                {gateBlocked ? "gate: block" : "gate: pass"}
+              </span>
+            )}
+            <button
+              onClick={onClose}
+              className="h-8 w-8 rounded-full hairline border text-muted-foreground hover:text-foreground hover:bg-surface-2 transition"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+
+        {data && (
+          <div className="px-5 py-4 border-b hairline grid grid-cols-2 md:grid-cols-4 gap-2">
+            <DiffStat label="Regressed" value={data.summary.regressed} tone="text-red-400" />
+            <DiffStat label="Fixed" value={data.summary.fixed} tone="text-emerald-400" />
+            <DiffStat label="Still failing" value={data.summary.still_failing} tone="text-amber-400" />
+            <DiffStat label="Still passing" value={data.summary.still_passing} tone="text-muted-foreground" />
+          </div>
+        )}
+
+        <div className="flex-1 overflow-auto p-5 space-y-2">
+          {isLoading && <div className="text-[13px] text-muted-foreground">Loading diff…</div>}
+          {error && (
+            <div className="text-[13px] text-red-400">Failed to load diff: {(error as Error).message}</div>
+          )}
+          {rows.map((r) => (
+            <div key={r.attack_id} className={`rounded-xl border p-3 ${changeTone[r.change]}`}>
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] uppercase tracking-widest rounded-full px-2 py-1 bg-background/40">
+                  {r.change.replace("_", " ")}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13px] font-medium truncate text-foreground">{r.name}</div>
+                  <div className="text-[11px] opacity-80 truncate">
+                    {r.owasp_id ? `${r.owasp_id} · ` : ""}
+                    {r.category} · {r.severity}
+                  </div>
+                </div>
+                <div className="text-[11px] tabular-nums text-foreground/80 whitespace-nowrap">
+                  {r.base_verdict} → <span className="font-semibold">{r.head_verdict}</span>
+                </div>
+              </div>
+              {r.change === "regressed" && r.head_reasoning && (
+                <div className="mt-2 text-[12px] text-foreground/80 border-t border-white/5 pt-2">
+                  {r.head_reasoning}
+                </div>
+              )}
+            </div>
+          ))}
+          {!isLoading && rows.length === 0 && (
+            <div className="text-[13px] text-muted-foreground">No overlapping attacks to compare.</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DiffStat({ label, value, tone }: { label: string; value: number; tone: string }) {
+  return (
+    <div className="rounded-xl glass p-3">
+      <div className="text-[10.5px] uppercase tracking-widest text-muted-foreground/70">{label}</div>
+      <div className={`mt-1 text-[22px] font-semibold tracking-tight tabular-nums ${tone}`}>{value}</div>
+    </div>
+  );
+}
