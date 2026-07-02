@@ -225,13 +225,22 @@ function AgentsPanel({ onConnect }: { onConnect: () => void }) {
 
 // ---------- Runs ----------
 
-function RunsPanel({ onOpenRun }: { onOpenRun: (id: string) => void }) {
+function RunsPanel({
+  onOpenRun,
+  onCompare,
+}: {
+  onOpenRun: (id: string) => void;
+  onCompare: (base: string, head: string) => void;
+}) {
   const list = useServerFn(listRuns);
   const { data: runs = [], isLoading } = useQuery<RunRow[]>({
     queryKey: ["runs"],
     queryFn: () => list() as Promise<RunRow[]>,
     refetchInterval: 4000,
   });
+
+  const [baseId, setBaseId] = useState<string | null>(null);
+  const [headId, setHeadId] = useState<string | null>(null);
 
   const stats = useMemo(() => {
     const done = runs.filter((r) => r.status === "complete");
@@ -240,6 +249,8 @@ function RunsPanel({ onOpenRun }: { onOpenRun: (id: string) => void }) {
     const rate = totalRun ? Math.round((totalPass / totalRun) * 100) : null;
     return { runs: runs.length, rate };
   }, [runs]);
+
+  const canCompare = baseId && headId && baseId !== headId;
 
   return (
     <>
@@ -263,7 +274,36 @@ function RunsPanel({ onOpenRun }: { onOpenRun: (id: string) => void }) {
           <Stat label="Attacks per run" value="12" />
         </div>
 
-        <div className="p-5 pt-0">
+        <div className="px-5 pb-2 flex items-center justify-between gap-3 text-[12px] text-muted-foreground">
+          <div className="truncate">
+            Regression gate:{" "}
+            <span className="text-foreground/80">{baseId ? "baseline set" : "pick a baseline"}</span>
+            {" · "}
+            <span className="text-foreground/80">{headId ? "compare set" : "pick a compare run"}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {(baseId || headId) && (
+              <button
+                onClick={() => {
+                  setBaseId(null);
+                  setHeadId(null);
+                }}
+                className="h-7 px-2.5 rounded-full hairline border hover:bg-surface-2 transition"
+              >
+                Clear
+              </button>
+            )}
+            <button
+              disabled={!canCompare}
+              onClick={() => canCompare && onCompare(baseId!, headId!)}
+              className="h-7 px-3 rounded-full bg-accent text-accent-foreground text-[12px] font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              View diff →
+            </button>
+          </div>
+        </div>
+
+        <div className="p-5 pt-3">
           {isLoading && <div className="text-[13px] text-muted-foreground">Loading…</div>}
           {!isLoading && runs.length === 0 && (
             <div className="rounded-xl border hairline border-dashed p-10 text-center">
@@ -275,24 +315,61 @@ function RunsPanel({ onOpenRun }: { onOpenRun: (id: string) => void }) {
           )}
           {runs.length > 0 && (
             <div className="rounded-xl hairline border divide-y divide-border/50 overflow-hidden">
-              {runs.map((r) => (
-                <button
-                  key={r.id}
-                  onClick={() => onOpenRun(r.id)}
-                  className="w-full text-left px-4 py-3 hover:bg-surface-2 transition flex items-center gap-4"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[13px] font-medium truncate">
-                      Run · {new Date(r.started_at).toLocaleString()}
-                    </div>
-                    <div className="text-[11.5px] text-muted-foreground">
-                      {r.status === "running" ? "In progress…" : `${r.pass_count}/${r.total} passed · ${r.fail_count} fail · ${r.error_count} error`}
-                    </div>
+              {runs.map((r) => {
+                const isBase = baseId === r.id;
+                const isHead = headId === r.id;
+                const completed = r.status === "complete";
+                return (
+                  <div
+                    key={r.id}
+                    className="w-full px-4 py-3 hover:bg-surface-2 transition flex items-center gap-3"
+                  >
+                    <button onClick={() => onOpenRun(r.id)} className="flex-1 min-w-0 text-left">
+                      <div className="text-[13px] font-medium truncate">
+                        Run · {new Date(r.started_at).toLocaleString()}
+                      </div>
+                      <div className="text-[11.5px] text-muted-foreground">
+                        {r.status === "running"
+                          ? "In progress…"
+                          : `${r.pass_count}/${r.total} passed · ${r.fail_count} fail · ${r.error_count} error`}
+                      </div>
+                    </button>
+                    <StatusPill status={r.status} />
+                    {completed && (
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => setBaseId(isBase ? null : r.id)}
+                          className={`h-7 px-2 rounded-md text-[10.5px] uppercase tracking-widest transition hairline border ${
+                            isBase
+                              ? "bg-accent/15 text-accent border-accent/40"
+                              : "text-muted-foreground hover:bg-surface-2"
+                          }`}
+                          title="Use as regression baseline"
+                        >
+                          base
+                        </button>
+                        <button
+                          onClick={() => setHeadId(isHead ? null : r.id)}
+                          className={`h-7 px-2 rounded-md text-[10.5px] uppercase tracking-widest transition hairline border ${
+                            isHead
+                              ? "bg-accent/15 text-accent border-accent/40"
+                              : "text-muted-foreground hover:bg-surface-2"
+                          }`}
+                          title="Compare against baseline"
+                        >
+                          vs
+                        </button>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => onOpenRun(r.id)}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      ›
+                    </button>
                   </div>
-                  <StatusPill status={r.status} />
-                  <span className="text-muted-foreground">›</span>
-                </button>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
