@@ -401,23 +401,6 @@ function SeverityPill({ severity }: { severity: string }) {
   );
 }
 
-function Waveform() {
-  const bars = Array.from({ length: 96 });
-  return (
-    <div className="absolute inset-0 flex items-end gap-[2px] px-3 pb-3 pt-8">
-      {bars.map((_, i) => {
-        const h = 12 + Math.abs(Math.sin(i * 0.5)) * 60 + (i % 7) * 4;
-        return (
-          <div
-            key={i}
-            className="flex-1 rounded-sm bg-foreground/15"
-            style={{ height: `${Math.min(h, 90)}%` }}
-          />
-        );
-      })}
-    </div>
-  );
-}
 
 function Footer() {
   return (
