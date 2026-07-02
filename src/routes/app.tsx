@@ -19,6 +19,11 @@ function AppShell() {
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
   const [active, setActive] = useState<"Suites" | "Scenarios" | "Attacks" | "Traces" | "Reports">("Suites");
+  const [connectOpen, setConnectOpen] = useState(false);
+  const [endpoint, setEndpoint] = useState("");
+  const [agentName, setAgentName] = useState("");
+  const [authHeader, setAuthHeader] = useState("");
+  const [connectStatus, setConnectStatus] = useState<null | "saving" | "saved">(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
