@@ -145,7 +145,10 @@ function AppShell() {
                   <p className="mt-1.5 text-[13px] text-muted-foreground max-w-sm mx-auto">
                     Connect your first agent endpoint to start stress-testing. Every trace, tool call, and failure will land here.
                   </p>
-                  <button className="mt-5 h-10 rounded-full bg-foreground text-background px-5 text-[13.5px] font-medium hover:opacity-90 transition">
+                  <button
+                    onClick={() => { setConnectStatus(null); setConnectOpen(true); }}
+                    className="mt-5 h-10 rounded-full bg-foreground text-background px-5 text-[13.5px] font-medium hover:opacity-90 transition"
+                  >
                     Connect an agent
                   </button>
                 </div>
