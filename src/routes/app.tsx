@@ -519,7 +519,10 @@ type Preset = {
   keyUrl: string;
   keySteps: string[];
   suggestedName: string;
+  defaultModel: string;
+  modelHint: string;
 };
+
 
 const PRESETS: Preset[] = [
   {
