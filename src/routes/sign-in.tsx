@@ -42,7 +42,7 @@ export function AuthShell({ mode }: { mode: "signin" | "signup" }) {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       }
-      navigate({ to: "/" });
+      navigate({ to: "/app" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -54,7 +54,7 @@ export function AuthShell({ mode }: { mode: "signin" | "signup" }) {
     setError(null);
     setLoading(true);
     const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
+      redirect_uri: `${window.location.origin}/app`,
     });
     if (result.error) {
       setError(result.error instanceof Error ? result.error.message : "Google sign-in failed");
@@ -62,7 +62,7 @@ export function AuthShell({ mode }: { mode: "signin" | "signup" }) {
       return;
     }
     if (result.redirected) return;
-    navigate({ to: "/" });
+    navigate({ to: "/app" });
   }
 
   return (

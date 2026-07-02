@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -119,11 +120,19 @@ function ClosingCTA() {
 
 function Nav() {
   const [scrolled, setScrolled] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    supabase.auth.getSession().then(({ data }) => setSignedIn(!!data.session?.user));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setSignedIn(!!session?.user);
+    });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      sub.subscription.unsubscribe();
+    };
   }, []);
   return (
     <header
@@ -137,18 +146,29 @@ function Nav() {
           <span className="text-[15px] tracking-tight font-medium">Adversa</span>
         </Link>
         <div className="flex items-center gap-1">
-          <Link
-            to="/sign-in"
-            className="inline-flex h-8 items-center px-3 text-[13px] text-muted-foreground hover:text-foreground transition"
-          >
-            Sign in
-          </Link>
-          <Link
-            to="/sign-up"
-            className="inline-flex h-8 items-center rounded-full bg-foreground text-background px-3.5 text-[13px] font-medium hover:opacity-90 transition"
-          >
-            Sign up
-          </Link>
+          {signedIn ? (
+            <Link
+              to="/app"
+              className="inline-flex h-8 items-center rounded-full bg-foreground text-background px-3.5 text-[13px] font-medium hover:opacity-90 transition"
+            >
+              Open console →
+            </Link>
+          ) : (
+            <>
+              <Link
+                to="/sign-in"
+                className="inline-flex h-8 items-center px-3 text-[13px] text-muted-foreground hover:text-foreground transition"
+              >
+                Sign in
+              </Link>
+              <Link
+                to="/sign-up"
+                className="inline-flex h-8 items-center rounded-full bg-foreground text-background px-3.5 text-[13px] font-medium hover:opacity-90 transition"
+              >
+                Sign up
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </header>
