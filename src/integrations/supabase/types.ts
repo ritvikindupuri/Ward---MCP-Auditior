@@ -50,28 +50,34 @@ export type Database = {
       attacks: {
         Row: {
           category: string
+          compliance_tags: string[]
           created_at: string
           expected_behavior: string
           id: string
           name: string
+          owasp_id: string | null
           prompt: string
           severity: string
         }
         Insert: {
           category: string
+          compliance_tags?: string[]
           created_at?: string
           expected_behavior: string
           id?: string
           name: string
+          owasp_id?: string | null
           prompt: string
           severity?: string
         }
         Update: {
           category?: string
+          compliance_tags?: string[]
           created_at?: string
           expected_behavior?: string
           id?: string
           name?: string
+          owasp_id?: string | null
           prompt?: string
           severity?: string
         }
