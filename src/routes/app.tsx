@@ -719,18 +719,64 @@ function RunDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
     refetchInterval: (q) => (q.state.data?.run?.status === "complete" ? false : 3000),
   });
 
+  const traces = data?.traces ?? [];
+  const catStats: CatStat[] = (() => {
+    const m = new Map<string, CatStat>();
+    for (const t of traces) {
+      const c = t.attacks?.category ?? "Uncategorized";
+      const s = m.get(c) ?? { category: c, total: 0, pass: 0, fail: 0, err: 0 };
+      s.total++;
+      if (t.verdict === "pass") s.pass++;
+      else if (t.verdict === "fail") s.fail++;
+      else s.err++;
+      m.set(c, s);
+    }
+    return Array.from(m.values()).sort((a, b) => b.fail - a.fail);
+  })();
+
+  const failures = traces.filter((t) => t.verdict === "fail");
+
+  const exportReport = () => {
+    if (!data) return;
+    const report = {
+      generated_at: new Date().toISOString(),
+      run: data.run,
+      summary: {
+        pass_rate: data.run.total ? data.run.pass_count / data.run.total : 0,
+        categories: catStats,
+      },
+      failures: failures.map((t) => ({
+        attack: t.attacks?.name,
+        category: t.attacks?.category,
+        owasp_id: t.attacks?.owasp_id,
+        severity: t.attacks?.severity,
+        compliance_tags: t.attacks?.compliance_tags ?? [],
+        judge_reasoning: t.judge_reasoning,
+        response: t.response_text,
+      })),
+      traces,
+    };
+    const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `adversa-report-${data.run.id.slice(0, 8)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/70 backdrop-blur-md"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-3xl max-h-[85vh] overflow-hidden rounded-2xl hairline border bg-surface-1 shadow-2xl flex flex-col"
+        className="w-full max-w-4xl max-h-[88vh] overflow-hidden rounded-2xl hairline border bg-surface-1 shadow-2xl flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="p-5 border-b hairline flex items-start justify-between">
-          <div>
-            <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground/70">Run</div>
+        <div className="p-5 border-b hairline flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground/70">Red-team report</div>
             <h2 className="mt-1 text-[18px] font-semibold tracking-tight">
               {data?.run ? new Date(data.run.started_at).toLocaleString() : "Loading…"}
             </h2>
@@ -740,17 +786,55 @@ function RunDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
               </div>
             )}
           </div>
-          <button
-            onClick={onClose}
-            className="h-8 w-8 rounded-full hairline border text-muted-foreground hover:text-foreground hover:bg-surface-2 transition"
-          >
-            ×
-          </button>
+          <div className="flex items-center gap-2">
+            {data?.run?.status === "complete" && (
+              <button
+                onClick={exportReport}
+                className="h-8 px-3 rounded-full hairline border text-[12px] text-foreground hover:bg-surface-2 transition"
+              >
+                Export JSON
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="h-8 w-8 rounded-full hairline border text-muted-foreground hover:text-foreground hover:bg-surface-2 transition"
+            >
+              ×
+            </button>
+          </div>
         </div>
+
+        {catStats.length > 0 && (
+          <div className="px-5 pt-4 pb-2 border-b hairline">
+            <div className="text-[10.5px] uppercase tracking-widest text-muted-foreground/70 mb-2">
+              Category breakdown
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {catStats.map((c) => {
+                const rate = c.total ? c.pass / c.total : 0;
+                const bar = Math.round(rate * 100);
+                const tone = rate >= 0.9 ? "bg-emerald-400" : rate >= 0.6 ? "bg-amber-400" : "bg-red-400";
+                return (
+                  <div key={c.category} className="rounded-lg hairline border p-2.5">
+                    <div className="flex items-center justify-between text-[11.5px]">
+                      <span className="truncate font-medium">{c.category}</span>
+                      <span className="text-muted-foreground tabular-nums">
+                        {c.pass}/{c.total}
+                      </span>
+                    </div>
+                    <div className="mt-1.5 h-1 rounded-full bg-surface-2 overflow-hidden">
+                      <div className={`h-full ${tone}`} style={{ width: `${bar}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="flex-1 overflow-auto p-5 space-y-2">
           {isLoading && <div className="text-[13px] text-muted-foreground">Loading traces…</div>}
-          {data?.traces?.map((t: TraceRow) => {
+          {traces.map((t: TraceRow) => {
             const atk = t.attacks;
             const color =
               t.verdict === "pass"
@@ -767,12 +851,25 @@ function RunDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
                   <div className="flex-1 min-w-0">
                     <div className="text-[13px] font-medium truncate">{atk?.name}</div>
                     <div className="text-[11px] text-muted-foreground truncate">
+                      {atk?.owasp_id ? `${atk.owasp_id} · ` : ""}
                       {atk?.category} · {atk?.severity} · {t.latency_ms}ms
                     </div>
                   </div>
                   <span className="text-muted-foreground text-[11px] group-open:hidden">expand</span>
                 </summary>
                 <div className="mt-3 space-y-3 text-[12.5px]">
+                  {atk?.compliance_tags && atk.compliance_tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {atk.compliance_tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="text-[10.5px] px-2 py-0.5 rounded-full hairline border text-muted-foreground"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   <div>
                     <div className="text-[10.5px] uppercase tracking-widest text-muted-foreground/70">Attack prompt</div>
                     <pre className="mt-1 whitespace-pre-wrap text-foreground/90">{atk?.prompt}</pre>
