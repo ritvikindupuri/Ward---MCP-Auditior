@@ -14,181 +14,127 @@ export type Database = {
   }
   public: {
     Tables: {
-      agents: {
+      findings: {
         Row: {
-          auth_header: string | null
+          agent: string
           created_at: string
-          endpoint: string
-          id: string
-          name: string
-          request_template: Json
-          response_path: string
-          user_id: string
-        }
-        Insert: {
-          auth_header?: string | null
-          created_at?: string
-          endpoint: string
-          id?: string
-          name: string
-          request_template?: Json
-          response_path?: string
-          user_id: string
-        }
-        Update: {
-          auth_header?: string | null
-          created_at?: string
-          endpoint?: string
-          id?: string
-          name?: string
-          request_template?: Json
-          response_path?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      attacks: {
-        Row: {
-          category: string
-          compliance_tags: string[]
-          created_at: string
-          expected_behavior: string
-          id: string
-          name: string
-          owasp_id: string | null
-          prompt: string
-          severity: string
-        }
-        Insert: {
-          category: string
-          compliance_tags?: string[]
-          created_at?: string
-          expected_behavior: string
-          id?: string
-          name: string
-          owasp_id?: string | null
-          prompt: string
-          severity?: string
-        }
-        Update: {
-          category?: string
-          compliance_tags?: string[]
-          created_at?: string
-          expected_behavior?: string
-          id?: string
-          name?: string
-          owasp_id?: string | null
-          prompt?: string
-          severity?: string
-        }
-        Relationships: []
-      }
-      runs: {
-        Row: {
-          agent_id: string
-          completed_at: string | null
-          error_count: number
-          fail_count: number
-          id: string
-          pass_count: number
-          started_at: string
-          status: string
-          total: number
-          user_id: string
-        }
-        Insert: {
-          agent_id: string
-          completed_at?: string | null
-          error_count?: number
-          fail_count?: number
-          id?: string
-          pass_count?: number
-          started_at?: string
-          status?: string
-          total?: number
-          user_id: string
-        }
-        Update: {
-          agent_id?: string
-          completed_at?: string | null
-          error_count?: number
-          fail_count?: number
-          id?: string
-          pass_count?: number
-          started_at?: string
-          status?: string
-          total?: number
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "runs_agent_id_fkey"
-            columns: ["agent_id"]
-            isOneToOne: false
-            referencedRelation: "agents"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      traces: {
-        Row: {
-          attack_id: string
-          created_at: string
-          http_status: number | null
+          description: string | null
+          evidence: Json
           id: string
           judge_reasoning: string | null
-          latency_ms: number | null
-          request: Json | null
-          response: Json | null
-          response_text: string | null
-          run_id: string
+          judge_verdict: string | null
+          scan_id: string
+          severity: string
+          title: string
           user_id: string
-          verdict: string
         }
         Insert: {
-          attack_id: string
+          agent: string
           created_at?: string
-          http_status?: number | null
+          description?: string | null
+          evidence?: Json
           id?: string
           judge_reasoning?: string | null
-          latency_ms?: number | null
-          request?: Json | null
-          response?: Json | null
-          response_text?: string | null
-          run_id: string
+          judge_verdict?: string | null
+          scan_id: string
+          severity: string
+          title: string
           user_id: string
-          verdict?: string
         }
         Update: {
-          attack_id?: string
+          agent?: string
           created_at?: string
-          http_status?: number | null
+          description?: string | null
+          evidence?: Json
           id?: string
           judge_reasoning?: string | null
-          latency_ms?: number | null
-          request?: Json | null
-          response?: Json | null
-          response_text?: string | null
-          run_id?: string
+          judge_verdict?: string | null
+          scan_id?: string
+          severity?: string
+          title?: string
           user_id?: string
-          verdict?: string
         }
         Relationships: [
           {
-            foreignKeyName: "traces_attack_id_fkey"
-            columns: ["attack_id"]
+            foreignKeyName: "findings_scan_id_fkey"
+            columns: ["scan_id"]
             isOneToOne: false
-            referencedRelation: "attacks"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "traces_run_id_fkey"
-            columns: ["run_id"]
-            isOneToOne: false
-            referencedRelation: "runs"
+            referencedRelation: "scans"
             referencedColumns: ["id"]
           },
         ]
+      }
+      github_connections: {
+        Row: {
+          created_at: string
+          github_login: string | null
+          id: string
+          pat: string
+          scopes: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          github_login?: string | null
+          id?: string
+          pat: string
+          scopes?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          github_login?: string | null
+          id?: string
+          pat?: string
+          scopes?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      scans: {
+        Row: {
+          completed_at: string | null
+          default_branch: string | null
+          error: string | null
+          id: string
+          progress: Json
+          repo_full_name: string
+          repo_url: string
+          started_at: string
+          status: string
+          summary: Json
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          default_branch?: string | null
+          error?: string | null
+          id?: string
+          progress?: Json
+          repo_full_name: string
+          repo_url: string
+          started_at?: string
+          status?: string
+          summary?: Json
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          default_branch?: string | null
+          error?: string | null
+          id?: string
+          progress?: Json
+          repo_full_name?: string
+          repo_url?: string
+          started_at?: string
+          status?: string
+          summary?: Json
+          user_id?: string
+        }
+        Relationships: []
       }
     }
     Views: {
