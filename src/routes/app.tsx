@@ -141,6 +141,7 @@ function AppShell() {
 
       {connectOpen && <ConnectAgentModal onClose={() => setConnectOpen(false)} />}
       {openRunId && <RunDetailModal id={openRunId} onClose={() => setOpenRunId(null)} />}
+      {diffPair && <RunDiffModal base={diffPair.base} head={diffPair.head} onClose={() => setDiffPair(null)} />}
     </div>
   );
 }
