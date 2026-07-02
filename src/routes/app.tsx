@@ -483,8 +483,8 @@ function RunDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
 
         <div className="flex-1 overflow-auto p-5 space-y-2">
           {isLoading && <div className="text-[13px] text-muted-foreground">Loading traces…</div>}
-          {data?.traces?.map((t) => {
-            const atk = (t as unknown as { attacks: { name: string; category: string; severity: string; prompt: string; expected_behavior: string } }).attacks;
+          {data?.traces?.map((t: TraceRow) => {
+            const atk = t.attacks;
             const color =
               t.verdict === "pass"
                 ? "text-emerald-400 bg-emerald-400/10"
