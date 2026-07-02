@@ -907,6 +907,7 @@ function RunDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
   });
 
   const traces = data?.traces ?? [];
+  const [filter, setFilter] = useState<"all" | "fail" | "error" | "pass">("all");
   const catStats: CatStat[] = (() => {
     const m = new Map<string, CatStat>();
     for (const t of traces) {
@@ -922,6 +923,26 @@ function RunDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
   })();
 
   const failures = traces.filter((t) => t.verdict === "fail");
+  const errors = traces.filter((t) => t.verdict === "error");
+  const passes = traces.filter((t) => t.verdict === "pass");
+  const visible =
+    filter === "all" ? traces : filter === "fail" ? failures : filter === "error" ? errors : passes;
+
+  // If most traces errored, the agent endpoint itself failed — surface why.
+  const errorBanner = (() => {
+    if (!traces.length || errors.length / traces.length < 0.5) return null;
+    const statusCounts = new Map<string, number>();
+    const reasonCounts = new Map<string, number>();
+    for (const t of errors) {
+      const s = t.http_status ? String(t.http_status) : "network/timeout";
+      statusCounts.set(s, (statusCounts.get(s) ?? 0) + 1);
+      const r = (t.judge_reasoning ?? "unknown").slice(0, 200);
+      reasonCounts.set(r, (reasonCounts.get(r) ?? 0) + 1);
+    }
+    const topStatus = [...statusCounts.entries()].sort((a, b) => b[1] - a[1]);
+    const topReason = [...reasonCounts.entries()].sort((a, b) => b[1] - a[1])[0];
+    return { topStatus, topReason };
+  })();
 
   const exportReport = () => {
     if (!data) return;
@@ -996,11 +1017,40 @@ function RunDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
           </div>
         </div>
 
-        {catStats.length > 0 && (
-          <div className="px-5 pt-4 pb-2 border-b hairline">
-            <div className="text-[10.5px] uppercase tracking-widest text-muted-foreground/70 mb-2">
-              Category breakdown
+        {errorBanner && (
+          <div className="mx-5 mt-4 rounded-xl border border-red-400/30 bg-red-400/5 p-4">
+            <div className="flex items-center gap-2 text-[11px] uppercase tracking-widest text-red-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
+              Agent endpoint failure
             </div>
+            <div className="mt-2 text-[13px] text-foreground/90">
+              {errors.length} of {traces.length} attacks couldn't be judged because the agent endpoint didn't respond successfully.
+            </div>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {errorBanner.topStatus.map(([s, n]) => (
+                <span key={s} className="text-[11px] px-2 py-0.5 rounded-full border border-red-400/30 text-red-200 bg-red-400/10">
+                  {s} × {n}
+                </span>
+              ))}
+            </div>
+            {errorBanner.topReason && (
+              <div className="mt-3 text-[12px] text-muted-foreground">
+                <span className="uppercase tracking-widest text-[10.5px] text-muted-foreground/70">Most common reason</span>
+                <div className="mt-1 font-mono text-foreground/80 text-[12px]">{errorBanner.topReason[0]}</div>
+              </div>
+            )}
+            <div className="mt-3 text-[12px] text-muted-foreground">
+              Common fixes: verify the endpoint URL, check the auth header (needs the <span className="font-mono">Bearer </span> prefix), confirm the request template matches the provider's API, and re-test the connection in Connect agent.
+            </div>
+          </div>
+        )}
+
+        {catStats.length > 0 && (
+          <details className="px-5 pt-4 pb-2 border-b hairline" open={!errorBanner}>
+            <summary className="cursor-pointer text-[10.5px] uppercase tracking-widest text-muted-foreground/70 mb-2 list-none flex items-center justify-between">
+              <span>Category breakdown ({catStats.length})</span>
+              <span className="text-muted-foreground/50">toggle</span>
+            </summary>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               {catStats.map((c) => {
                 const rate = c.total ? c.pass / c.total : 0;
@@ -1026,12 +1076,34 @@ function RunDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
                 );
               })}
             </div>
-          </div>
+          </details>
         )}
+
+        <div className="px-5 pt-4 flex items-center gap-1 text-[12px]">
+          {([
+            ["all", `All ${traces.length}`],
+            ["fail", `Failed ${failures.length}`],
+            ["error", `Errored ${errors.length}`],
+            ["pass", `Passed ${passes.length}`],
+          ] as const).map(([k, label]) => (
+            <button
+              key={k}
+              onClick={() => setFilter(k)}
+              className={`h-7 px-3 rounded-full hairline border transition ${
+                filter === k ? "bg-foreground text-background border-transparent" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
 
         <div className="flex-1 overflow-auto p-5 space-y-2">
           {isLoading && <div className="text-[13px] text-muted-foreground">Loading traces…</div>}
-          {traces.map((t: TraceRow) => {
+          {!isLoading && visible.length === 0 && (
+            <div className="text-[13px] text-muted-foreground">No traces in this filter.</div>
+          )}
+          {visible.map((t: TraceRow) => {
             const atk = t.attacks;
             const color =
               t.verdict === "pass"
