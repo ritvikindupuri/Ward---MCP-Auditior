@@ -7,8 +7,8 @@ import { lovable } from "@/integrations/lovable";
 export const Route = createFileRoute("/sign-in")({
   head: () => ({
     meta: [
-      { title: "Sign in — Adversa" },
-      { name: "description", content: "Sign in to Adversa." },
+      { title: "Sign in — Sable" },
+      { name: "description", content: "Sign in to Sable." },
     ],
   }),
   component: () => <AuthShell mode="signin" />,
@@ -74,7 +74,7 @@ export function AuthShell({ mode }: { mode: "signin" | "signup" }) {
       <header className="absolute top-0 inset-x-0 px-6 h-14 flex items-center">
         <Link to="/" className="flex items-center gap-2.5">
           <Mark size={22} />
-          <span className="text-[15px] tracking-tight font-medium">Adversa</span>
+          <span className="text-[15px] tracking-tight font-medium">Sable</span>
         </Link>
       </header>
 
@@ -92,7 +92,7 @@ export function AuthShell({ mode }: { mode: "signin" | "signup" }) {
             )}
           </h1>
           <p className="mt-3 text-[14px] text-muted-foreground">
-            {isSignup ? "Start stress-testing in minutes." : "Sign in to your workspace."}
+            {isSignup ? "Start scanning your repositories in minutes." : "Sign in to your workspace."}
           </p>
 
           <button
@@ -141,7 +141,7 @@ export function AuthShell({ mode }: { mode: "signin" | "signup" }) {
               </>
             ) : (
               <>
-                New to Adversa?{" "}
+                New to Sable?{" "}
                 <Link to="/sign-up" className="text-foreground hover:underline underline-offset-4">
                   Create an account
                 </Link>
