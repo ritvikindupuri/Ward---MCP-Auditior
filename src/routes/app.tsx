@@ -1007,17 +1007,22 @@ function RunDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
                 const bar = Math.round(rate * 100);
                 const tone = rate >= 0.9 ? "bg-emerald-400" : rate >= 0.6 ? "bg-amber-400" : "bg-red-400";
                 return (
-                  <div key={c.category} className="rounded-lg hairline border p-2.5">
-                    <div className="flex items-center justify-between text-[11.5px]">
-                      <span className="truncate font-medium">{c.category}</span>
-                      <span className="text-muted-foreground tabular-nums">
-                        {c.pass}/{c.total}
-                      </span>
+                  <Tip
+                    key={c.category}
+                    label={`${c.pass} pass · ${c.fail} fail · ${c.err} error out of ${c.total}`}
+                  >
+                    <div className="rounded-lg hairline border p-2.5 cursor-default">
+                      <div className="flex items-center justify-between text-[11.5px]">
+                        <span className="truncate font-medium">{c.category}</span>
+                        <span className="text-muted-foreground tabular-nums">
+                          {c.pass}/{c.total}
+                        </span>
+                      </div>
+                      <div className="mt-1.5 h-1 rounded-full bg-surface-2 overflow-hidden">
+                        <div className={`h-full ${tone}`} style={{ width: `${bar}%` }} />
+                      </div>
                     </div>
-                    <div className="mt-1.5 h-1 rounded-full bg-surface-2 overflow-hidden">
-                      <div className={`h-full ${tone}`} style={{ width: `${bar}%` }} />
-                    </div>
-                  </div>
+                  </Tip>
                 );
               })}
             </div>
