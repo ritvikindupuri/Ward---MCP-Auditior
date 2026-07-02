@@ -14,6 +14,30 @@ import {
   startRun,
 } from "@/lib/adversa.functions";
 
+type AgentRow = { id: string; name: string; endpoint: string; created_at: string };
+type RunRow = {
+  id: string;
+  agent_id: string;
+  status: string;
+  total: number;
+  pass_count: number;
+  fail_count: number;
+  error_count: number;
+  started_at: string;
+  completed_at: string | null;
+};
+type TraceRow = {
+  id: string;
+  attack_id: string;
+  verdict: string;
+  judge_reasoning: string | null;
+  response_text: string | null;
+  latency_ms: number | null;
+  http_status: number | null;
+  created_at: string;
+  attacks: { name: string; category: string; severity: string; prompt: string; expected_behavior: string } | null;
+};
+
 export const Route = createFileRoute("/app")({
   head: () => ({
     meta: [
