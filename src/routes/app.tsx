@@ -604,12 +604,13 @@ function ConnectAgentModal({ onClose }: { onClose: () => void }) {
   const [endpoint, setEndpoint] = useState("");
   const [rawKey, setRawKey] = useState("");
   const [authHeader, setAuthHeader] = useState("");
+  const [model, setModel] = useState("");
   const [testStatus, setTestStatus] = useState<"idle" | "testing" | "ok" | "fail">("idle");
   const [testMsg, setTestMsg] = useState("");
 
   const mut = useMutation({
     mutationFn: () =>
-      create({ data: { name, endpoint, auth_header: authHeader || null } }),
+      create({ data: { name, endpoint, auth_header: authHeader || null, model: model.trim() || null } }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["agents"] });
       onClose();
@@ -626,6 +627,7 @@ function ConnectAgentModal({ onClose }: { onClose: () => void }) {
     setName(p.suggestedName);
     setAuthHeader("");
     setRawKey("");
+    setModel(p.defaultModel);
     setStep("credentials");
   }
 
@@ -635,14 +637,16 @@ function ConnectAgentModal({ onClose }: { onClose: () => void }) {
     try {
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (authHeader) headers["Authorization"] = authHeader;
+      const body: Record<string, unknown> = {
+        messages: [{ role: "user", content: "Reply with the single word: ok" }],
+      };
+      if (model.trim()) body.model = model.trim();
       const res = await fetch(endpoint, {
         method: "POST",
         headers,
-        body: JSON.stringify({
-          model: preset?.id === "groq" ? "llama-3.1-8b-instant" : "gpt-4o-mini",
-          messages: [{ role: "user", content: "Reply with the single word: ok" }],
-        }),
+        body: JSON.stringify(body),
       });
+
       if (!res.ok) {
         setTestStatus("fail");
         setTestMsg(`HTTP ${res.status} — ${await res.text().then((t) => t.slice(0, 160))}`);
