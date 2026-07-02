@@ -822,11 +822,24 @@ function ConnectAgentModal({ onClose }: { onClose: () => void }) {
                 </Field>
               )}
 
+              <Field label="Model">
+                <input
+                  value={model}
+                  onChange={(e) => setModel(e.target.value)}
+                  placeholder={preset?.defaultModel || "gpt-4o-mini"}
+                  className="w-full h-10 rounded-lg hairline border bg-background px-3 text-[13.5px] outline-none focus:border-foreground/30 font-mono"
+                />
+                {preset?.modelHint && (
+                  <p className="mt-1.5 text-[11.5px] text-muted-foreground">{preset.modelHint}</p>
+                )}
+              </Field>
+
               <p className="text-[11.5px] text-muted-foreground">
                 Your key is stored encrypted and only used to call your endpoint. It never leaves your workspace.
               </p>
             </div>
           )}
+
 
           {step === "test" && (
             <div className="space-y-4">
