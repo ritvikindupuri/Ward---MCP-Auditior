@@ -445,9 +445,10 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function RunDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
   const get = useServerFn(getRun);
-  const { data, isLoading } = useQuery({
+  type RunDetail = { run: RunRow; traces: TraceRow[] };
+  const { data, isLoading } = useQuery<RunDetail>({
     queryKey: ["run", id],
-    queryFn: () => get({ data: { id } }),
+    queryFn: () => get({ data: { id } }) as Promise<RunDetail>,
     refetchInterval: (q) => (q.state.data?.run?.status === "complete" ? false : 3000),
   });
 
