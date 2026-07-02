@@ -538,6 +538,8 @@ const PRESETS: Preset[] = [
       "Paste it below — we prepend 'Bearer ' for you.",
     ],
     suggestedName: "openai-gpt4",
+    defaultModel: "gpt-4o-mini",
+    modelHint: "e.g. gpt-4o-mini, gpt-4o, gpt-4.1-mini",
   },
   {
     id: "openrouter",
@@ -552,6 +554,8 @@ const PRESETS: Preset[] = [
       "Paste it below — we prepend 'Bearer ' for you.",
     ],
     suggestedName: "openrouter-agent",
+    defaultModel: "openai/gpt-4o-mini",
+    modelHint: "OpenRouter models use vendor/model — e.g. openai/gpt-4o-mini, anthropic/claude-3.5-sonnet, meta-llama/llama-3.1-8b-instruct",
   },
   {
     id: "groq",
@@ -566,6 +570,8 @@ const PRESETS: Preset[] = [
       "Paste it below — we prepend 'Bearer ' for you.",
     ],
     suggestedName: "groq-llama",
+    defaultModel: "llama-3.1-8b-instant",
+    modelHint: "e.g. llama-3.1-8b-instant, llama-3.3-70b-versatile",
   },
   {
     id: "custom",
@@ -580,7 +586,10 @@ const PRESETS: Preset[] = [
       "Add any auth header your service requires (or leave blank).",
     ],
     suggestedName: "my-agent",
+    defaultModel: "",
+    modelHint: "Optional — leave blank if your endpoint infers the model.",
   },
+
 ];
 
 type Step = "path" | "provider" | "credentials" | "test" | "done";
