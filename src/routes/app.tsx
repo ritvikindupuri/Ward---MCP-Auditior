@@ -9,11 +9,13 @@ import {
   createAgent,
   deleteAgent,
   diffRuns,
+  getAttackStats,
   getRun,
   listAgents,
   listRuns,
   startRun,
 } from "@/lib/adversa.functions";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 type AgentRow = { id: string; name: string; endpoint: string; created_at: string };
 type RunRow = {
@@ -90,59 +92,80 @@ function AppShell() {
   const initial = name.charAt(0).toUpperCase();
 
   return (
-    <div className="min-h-screen bg-background text-foreground grain">
-      <header className="sticky top-0 z-40 backdrop-blur-xl bg-background/70 border-b hairline">
-        <div className="mx-auto max-w-[1400px] px-6 h-14 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5">
-            <Mark size={22} />
-            <span className="text-[15px] tracking-tight font-medium">Adversa</span>
-            <span className="ml-3 text-[12px] text-muted-foreground">/ Console</span>
-          </Link>
-          <div className="flex items-center gap-3">
-            <span className="text-[13px] text-muted-foreground hidden sm:block">{user.email}</span>
-            <div className="h-7 w-7 rounded-full bg-surface-2 hairline border flex items-center justify-center text-[12px] font-medium">
-              {initial}
+    <TooltipProvider delayDuration={200} skipDelayDuration={100}>
+      <div className="min-h-screen bg-background text-foreground grain">
+        <header className="sticky top-0 z-40 backdrop-blur-xl bg-background/70 border-b hairline">
+          <div className="mx-auto max-w-[1400px] px-6 h-14 flex items-center justify-between">
+            <Tip label="Back to marketing site">
+              <Link to="/" className="flex items-center gap-2.5">
+                <Mark size={22} />
+                <span className="text-[15px] tracking-tight font-medium">Adversa</span>
+                <span className="ml-3 text-[12px] text-muted-foreground">/ Console</span>
+              </Link>
+            </Tip>
+            <div className="flex items-center gap-3">
+              <span className="text-[13px] text-muted-foreground hidden sm:block">{user.email}</span>
+              <Tip label="Signed-in user">
+                <div className="h-7 w-7 rounded-full bg-surface-2 hairline border flex items-center justify-center text-[12px] font-medium cursor-default">
+                  {initial}
+                </div>
+              </Tip>
+              <Tip label="End your session">
+                <button
+                  onClick={signOut}
+                  className="h-8 rounded-full hairline border px-3 text-[12.5px] text-muted-foreground hover:text-foreground hover:bg-surface-2 transition"
+                >
+                  Sign out
+                </button>
+              </Tip>
             </div>
-            <button
-              onClick={signOut}
-              className="h-8 rounded-full hairline border px-3 text-[12.5px] text-muted-foreground hover:text-foreground hover:bg-surface-2 transition"
-            >
-              Sign out
-            </button>
+          </div>
+        </header>
+
+        <div className="mx-auto max-w-[1400px] px-6 py-10">
+          <div className="flex items-end justify-between flex-wrap gap-4">
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground/70">Workspace</div>
+              <h1 className="mt-2 text-[34px] leading-[1.05] tracking-[-0.035em] font-semibold">
+                Welcome, <span className="font-serif italic font-normal text-muted-foreground">{name}.</span>
+              </h1>
+            </div>
+            <Tip label="Register an AI agent endpoint to test">
+              <button
+                onClick={() => setConnectOpen(true)}
+                className="h-10 rounded-full bg-foreground text-background px-5 text-[13.5px] font-medium hover:opacity-90 transition"
+              >
+                + Connect agent
+              </button>
+            </Tip>
+          </div>
+
+          <div className="mt-10 grid grid-cols-12 gap-6">
+            <aside className="col-span-12 md:col-span-4">
+              <AgentsPanel onConnect={() => setConnectOpen(true)} />
+            </aside>
+            <main className="col-span-12 md:col-span-8 space-y-6">
+              <RunsPanel onOpenRun={setOpenRunId} onCompare={(base, head) => setDiffPair({ base, head })} />
+            </main>
           </div>
         </div>
-      </header>
 
-      <div className="mx-auto max-w-[1400px] px-6 py-10">
-        <div className="flex items-end justify-between flex-wrap gap-4">
-          <div>
-            <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground/70">Workspace</div>
-            <h1 className="mt-2 text-[34px] leading-[1.05] tracking-[-0.035em] font-semibold">
-              Welcome, <span className="font-serif italic font-normal text-muted-foreground">{name}.</span>
-            </h1>
-          </div>
-          <button
-            onClick={() => setConnectOpen(true)}
-            className="h-10 rounded-full bg-foreground text-background px-5 text-[13.5px] font-medium hover:opacity-90 transition"
-          >
-            + Connect agent
-          </button>
-        </div>
-
-        <div className="mt-10 grid grid-cols-12 gap-6">
-          <aside className="col-span-12 md:col-span-4">
-            <AgentsPanel onConnect={() => setConnectOpen(true)} />
-          </aside>
-          <main className="col-span-12 md:col-span-8 space-y-6">
-            <RunsPanel onOpenRun={setOpenRunId} onCompare={(base, head) => setDiffPair({ base, head })} />
-          </main>
-        </div>
+        {connectOpen && <ConnectAgentModal onClose={() => setConnectOpen(false)} />}
+        {openRunId && <RunDetailModal id={openRunId} onClose={() => setOpenRunId(null)} />}
+        {diffPair && <RunDiffModal base={diffPair.base} head={diffPair.head} onClose={() => setDiffPair(null)} />}
       </div>
+    </TooltipProvider>
+  );
+}
 
-      {connectOpen && <ConnectAgentModal onClose={() => setConnectOpen(false)} />}
-      {openRunId && <RunDetailModal id={openRunId} onClose={() => setOpenRunId(null)} />}
-      {diffPair && <RunDiffModal base={diffPair.base} head={diffPair.head} onClose={() => setDiffPair(null)} />}
-    </div>
+function Tip({ label, children, side = "bottom" }: { label: string; children: React.ReactNode; side?: "top" | "bottom" | "left" | "right" }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side={side} className="bg-surface-2 text-foreground hairline border text-[11.5px]">
+        {label}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -153,9 +176,15 @@ function AgentsPanel({ onConnect }: { onConnect: () => void }) {
   const list = useServerFn(listAgents);
   const del = useServerFn(deleteAgent);
   const run = useServerFn(startRun);
+  const stats = useServerFn(getAttackStats);
   const { data: agents = [], isLoading } = useQuery<AgentRow[]>({
     queryKey: ["agents"],
     queryFn: () => list() as Promise<AgentRow[]>,
+  });
+  const { data: attackStats } = useQuery<{ total: number; categories: number; owasp_covered: number; frameworks: string[] }>({
+    queryKey: ["attack-stats"],
+    queryFn: () => stats() as Promise<{ total: number; categories: number; owasp_covered: number; frameworks: string[] }>,
+    staleTime: 60_000,
   });
   const removeMut = useMutation({
     mutationFn: (id: string) => del({ data: { id } }),
@@ -166,11 +195,15 @@ function AgentsPanel({ onConnect }: { onConnect: () => void }) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["runs"] }),
   });
 
+  const attackCount = attackStats?.total ?? null;
+
   return (
     <section className="rounded-2xl hairline border p-5">
       <div className="flex items-center justify-between">
         <div className="text-[15px] font-medium">Agents</div>
-        <span className="text-[12px] text-muted-foreground">{agents.length}</span>
+        <Tip label="Agents registered in this workspace">
+          <span className="text-[12px] text-muted-foreground cursor-default">{agents.length}</span>
+        </Tip>
       </div>
       <div className="mt-4 space-y-2">
         {isLoading && <div className="text-[13px] text-muted-foreground">Loading…</div>}
@@ -178,38 +211,52 @@ function AgentsPanel({ onConnect }: { onConnect: () => void }) {
           <div className="rounded-xl border hairline border-dashed p-6 text-center">
             <div className="text-[13.5px] font-medium">No agents yet</div>
             <p className="mt-1 text-[12.5px] text-muted-foreground">Point Adversa at an endpoint to begin.</p>
-            <button
-              onClick={onConnect}
-              className="mt-4 h-9 rounded-full bg-foreground text-background px-4 text-[12.5px] font-medium hover:opacity-90 transition"
-            >
-              Connect agent
-            </button>
+            <Tip label="Guided setup — OpenAI, OpenRouter, Groq or custom">
+              <button
+                onClick={onConnect}
+                className="mt-4 h-9 rounded-full bg-foreground text-background px-4 text-[12.5px] font-medium hover:opacity-90 transition"
+              >
+                Connect agent
+              </button>
+            </Tip>
           </div>
         )}
         {agents.map((a) => (
           <div key={a.id} className="rounded-xl hairline border p-3">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <div className="text-[13.5px] font-medium truncate">{a.name}</div>
-                <div className="text-[11.5px] text-muted-foreground truncate">{a.endpoint}</div>
+                <Tip label={`Created ${new Date(a.created_at).toLocaleString()}`} side="top">
+                  <div className="text-[13.5px] font-medium truncate cursor-default">{a.name}</div>
+                </Tip>
+                <Tip label={a.endpoint} side="top">
+                  <div className="text-[11.5px] text-muted-foreground truncate cursor-default">{a.endpoint}</div>
+                </Tip>
               </div>
-              <button
-                onClick={() => removeMut.mutate(a.id)}
-                className="text-[11px] text-muted-foreground hover:text-foreground"
-                title="Delete"
-              >
-                ✕
-              </button>
+              <Tip label="Remove this agent">
+                <button
+                  onClick={() => removeMut.mutate(a.id)}
+                  className="text-[11px] text-muted-foreground hover:text-foreground"
+                  aria-label="Delete agent"
+                >
+                  ✕
+                </button>
+              </Tip>
             </div>
             <div className="mt-3 flex items-center gap-2">
-              <button
-                disabled={runMut.isPending && runMut.variables === a.id}
-                onClick={() => runMut.mutate(a.id)}
-                className="h-8 rounded-full bg-foreground text-background px-3.5 text-[12px] font-medium hover:opacity-90 transition disabled:opacity-60"
-              >
-                {runMut.isPending && runMut.variables === a.id ? "Running…" : "Run stress test"}
-              </button>
-              <span className="text-[11px] text-muted-foreground">12 attacks</span>
+              <Tip label={attackCount ? `Run all ${attackCount} adversarial probes against this agent` : "Run the full adversarial suite"}>
+                <button
+                  disabled={runMut.isPending && runMut.variables === a.id}
+                  onClick={() => runMut.mutate(a.id)}
+                  className="h-8 rounded-full bg-foreground text-background px-3.5 text-[12px] font-medium hover:opacity-90 transition disabled:opacity-60"
+                >
+                  {runMut.isPending && runMut.variables === a.id ? "Running…" : "Run stress test"}
+                </button>
+              </Tip>
+              <Tip label="Size of the adversarial library">
+                <span className="text-[11px] text-muted-foreground cursor-default">
+                  {attackCount == null ? "…" : `${attackCount} attacks`}
+                </span>
+              </Tip>
             </div>
           </div>
         ))}
@@ -233,24 +280,31 @@ function RunsPanel({
   onCompare: (base: string, head: string) => void;
 }) {
   const list = useServerFn(listRuns);
+  const stats = useServerFn(getAttackStats);
   const { data: runs = [], isLoading } = useQuery<RunRow[]>({
     queryKey: ["runs"],
     queryFn: () => list() as Promise<RunRow[]>,
     refetchInterval: 4000,
   });
+  const { data: attackStats } = useQuery<{ total: number; categories: number; owasp_covered: number; frameworks: string[] }>({
+    queryKey: ["attack-stats"],
+    queryFn: () => stats() as Promise<{ total: number; categories: number; owasp_covered: number; frameworks: string[] }>,
+    staleTime: 60_000,
+  });
 
   const [baseId, setBaseId] = useState<string | null>(null);
   const [headId, setHeadId] = useState<string | null>(null);
 
-  const stats = useMemo(() => {
+  const aggregate = useMemo(() => {
     const done = runs.filter((r) => r.status === "complete");
     const totalPass = done.reduce((a, r) => a + (r.pass_count ?? 0), 0);
     const totalRun = done.reduce((a, r) => a + (r.total ?? 0), 0);
     const rate = totalRun ? Math.round((totalPass / totalRun) * 100) : null;
-    return { runs: runs.length, rate };
+    return { runs: runs.length, done: done.length, rate };
   }, [runs]);
 
   const canCompare = baseId && headId && baseId !== headId;
+  const attackCount = attackStats?.total ?? null;
 
   return (
     <>
@@ -258,21 +312,56 @@ function RunsPanel({
         <div className="flex items-center justify-between p-5 border-b hairline">
           <div>
             <div className="text-[11px] uppercase tracking-widest text-muted-foreground/70">Overview</div>
-            <div className="mt-1 text-[15px] font-medium">Adversarial suite · v0.1</div>
+            <div className="mt-1 text-[15px] font-medium">Adversarial suite</div>
           </div>
           <div className="flex items-center gap-2 text-[12px]">
-            <span className="rounded-md glass px-2 py-1">{stats.runs} runs</span>
-            <span className="rounded-md hairline border px-2.5 py-1 text-muted-foreground">
-              {stats.rate == null ? "—" : `${stats.rate}% pass`}
-            </span>
+            <Tip label={`${aggregate.done} complete of ${aggregate.runs} total`}>
+              <span className="rounded-md glass px-2 py-1 cursor-default">{aggregate.runs} runs</span>
+            </Tip>
+            <Tip label="Aggregate pass rate across all completed runs">
+              <span className="rounded-md hairline border px-2.5 py-1 text-muted-foreground cursor-default">
+                {aggregate.rate == null ? "—" : `${aggregate.rate}% pass`}
+              </span>
+            </Tip>
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-5">
-          <Stat label="Total runs" value={stats.runs.toString()} />
-          <Stat label="Pass rate" value={stats.rate == null ? "—" : `${stats.rate}%`} />
-          <Stat label="Attacks per run" value="12" />
+          <Stat
+            label="Total runs"
+            value={aggregate.runs.toString()}
+            tip="Runs executed in this workspace"
+          />
+          <Stat
+            label="Pass rate"
+            value={aggregate.rate == null ? "—" : `${aggregate.rate}%`}
+            tip="Share of adversarial probes the agent handled safely"
+          />
+          <Stat
+            label="Attacks per run"
+            value={attackCount == null ? "…" : attackCount.toString()}
+            tip={
+              attackStats
+                ? `${attackStats.total} probes across ${attackStats.categories} categories, ${attackStats.owasp_covered} OWASP LLM entries`
+                : "Loading adversarial library…"
+            }
+          />
         </div>
+
+        {attackStats && attackStats.frameworks.length > 0 && (
+          <div className="px-5 pb-4 flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10.5px] uppercase tracking-widest text-muted-foreground/70 mr-1">
+              Compliance coverage
+            </span>
+            {attackStats.frameworks.map((f) => (
+              <Tip key={f} label={`Probes mapped to ${f} controls`}>
+                <span className="text-[10.5px] px-2 py-0.5 rounded-full hairline border text-muted-foreground cursor-default">
+                  {f}
+                </span>
+              </Tip>
+            ))}
+          </div>
+        )}
 
         <div className="px-5 pb-2 flex items-center justify-between gap-3 text-[12px] text-muted-foreground">
           <div className="truncate">
@@ -283,23 +372,33 @@ function RunsPanel({
           </div>
           <div className="flex items-center gap-2">
             {(baseId || headId) && (
-              <button
-                onClick={() => {
-                  setBaseId(null);
-                  setHeadId(null);
-                }}
-                className="h-7 px-2.5 rounded-full hairline border hover:bg-surface-2 transition"
-              >
-                Clear
-              </button>
+              <Tip label="Clear the current baseline/compare selection">
+                <button
+                  onClick={() => {
+                    setBaseId(null);
+                    setHeadId(null);
+                  }}
+                  className="h-7 px-2.5 rounded-full hairline border hover:bg-surface-2 transition"
+                >
+                  Clear
+                </button>
+              </Tip>
             )}
-            <button
-              disabled={!canCompare}
-              onClick={() => canCompare && onCompare(baseId!, headId!)}
-              className="h-7 px-3 rounded-full bg-accent text-accent-foreground text-[12px] font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+            <Tip
+              label={
+                canCompare
+                  ? "Open regression diff between selected runs"
+                  : "Pick a baseline and a compare run first"
+              }
             >
-              View diff →
-            </button>
+              <button
+                disabled={!canCompare}
+                onClick={() => canCompare && onCompare(baseId!, headId!)}
+                className="h-7 px-3 rounded-full bg-accent text-accent-foreground text-[12px] font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                View diff →
+              </button>
+            </Tip>
           </div>
         </div>
 
@@ -324,49 +423,56 @@ function RunsPanel({
                     key={r.id}
                     className="w-full px-4 py-3 hover:bg-surface-2 transition flex items-center gap-3"
                   >
-                    <button onClick={() => onOpenRun(r.id)} className="flex-1 min-w-0 text-left">
-                      <div className="text-[13px] font-medium truncate">
-                        Run · {new Date(r.started_at).toLocaleString()}
-                      </div>
-                      <div className="text-[11.5px] text-muted-foreground">
-                        {r.status === "running"
-                          ? "In progress…"
-                          : `${r.pass_count}/${r.total} passed · ${r.fail_count} fail · ${r.error_count} error`}
-                      </div>
-                    </button>
+                    <Tip label="Open full report with traces + judge reasoning" side="top">
+                      <button onClick={() => onOpenRun(r.id)} className="flex-1 min-w-0 text-left">
+                        <div className="text-[13px] font-medium truncate">
+                          Run · {new Date(r.started_at).toLocaleString()}
+                        </div>
+                        <div className="text-[11.5px] text-muted-foreground">
+                          {r.status === "running"
+                            ? "In progress…"
+                            : `${r.pass_count}/${r.total} passed · ${r.fail_count} fail · ${r.error_count} error`}
+                        </div>
+                      </button>
+                    </Tip>
                     <StatusPill status={r.status} />
                     {completed && (
                       <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => setBaseId(isBase ? null : r.id)}
-                          className={`h-7 px-2 rounded-md text-[10.5px] uppercase tracking-widest transition hairline border ${
-                            isBase
-                              ? "bg-accent/15 text-accent border-accent/40"
-                              : "text-muted-foreground hover:bg-surface-2"
-                          }`}
-                          title="Use as regression baseline"
-                        >
-                          base
-                        </button>
-                        <button
-                          onClick={() => setHeadId(isHead ? null : r.id)}
-                          className={`h-7 px-2 rounded-md text-[10.5px] uppercase tracking-widest transition hairline border ${
-                            isHead
-                              ? "bg-accent/15 text-accent border-accent/40"
-                              : "text-muted-foreground hover:bg-surface-2"
-                          }`}
-                          title="Compare against baseline"
-                        >
-                          vs
-                        </button>
+                        <Tip label="Use as regression baseline (v1)">
+                          <button
+                            onClick={() => setBaseId(isBase ? null : r.id)}
+                            className={`h-7 px-2 rounded-md text-[10.5px] uppercase tracking-widest transition hairline border ${
+                              isBase
+                                ? "bg-accent/15 text-accent border-accent/40"
+                                : "text-muted-foreground hover:bg-surface-2"
+                            }`}
+                          >
+                            base
+                          </button>
+                        </Tip>
+                        <Tip label="Compare against baseline (v2)">
+                          <button
+                            onClick={() => setHeadId(isHead ? null : r.id)}
+                            className={`h-7 px-2 rounded-md text-[10.5px] uppercase tracking-widest transition hairline border ${
+                              isHead
+                                ? "bg-accent/15 text-accent border-accent/40"
+                                : "text-muted-foreground hover:bg-surface-2"
+                            }`}
+                          >
+                            vs
+                          </button>
+                        </Tip>
                       </div>
                     )}
-                    <button
-                      onClick={() => onOpenRun(r.id)}
-                      className="text-muted-foreground hover:text-foreground"
-                    >
-                      ›
-                    </button>
+                    <Tip label="Open run">
+                      <button
+                        onClick={() => onOpenRun(r.id)}
+                        className="text-muted-foreground hover:text-foreground"
+                        aria-label="Open run"
+                      >
+                        ›
+                      </button>
+                    </Tip>
                   </div>
                 );
               })}
@@ -378,13 +484,14 @@ function RunsPanel({
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl glass p-4">
+function Stat({ label, value, tip }: { label: string; value: string; tip?: string }) {
+  const inner = (
+    <div className="rounded-xl glass p-4 cursor-default">
       <div className="text-[11px] uppercase tracking-widest text-muted-foreground/70">{label}</div>
       <div className="mt-2 text-[22px] font-semibold tracking-tight tabular-nums">{value}</div>
     </div>
   );
+  return tip ? <Tip label={tip}>{inner}</Tip> : inner;
 }
 
 function StatusPill({ status }: { status: string }) {
@@ -868,19 +975,24 @@ function RunDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
           </div>
           <div className="flex items-center gap-2">
             {data?.run?.status === "complete" && (
-              <button
-                onClick={exportReport}
-                className="h-8 px-3 rounded-full hairline border text-[12px] text-foreground hover:bg-surface-2 transition"
-              >
-                Export JSON
-              </button>
+              <Tip label="Download compliance-ready report (JSON) for auditors">
+                <button
+                  onClick={exportReport}
+                  className="h-8 px-3 rounded-full hairline border text-[12px] text-foreground hover:bg-surface-2 transition"
+                >
+                  Export JSON
+                </button>
+              </Tip>
             )}
-            <button
-              onClick={onClose}
-              className="h-8 w-8 rounded-full hairline border text-muted-foreground hover:text-foreground hover:bg-surface-2 transition"
-            >
-              ×
-            </button>
+            <Tip label="Close report">
+              <button
+                onClick={onClose}
+                className="h-8 w-8 rounded-full hairline border text-muted-foreground hover:text-foreground hover:bg-surface-2 transition"
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </Tip>
           </div>
         </div>
 
@@ -895,17 +1007,22 @@ function RunDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
                 const bar = Math.round(rate * 100);
                 const tone = rate >= 0.9 ? "bg-emerald-400" : rate >= 0.6 ? "bg-amber-400" : "bg-red-400";
                 return (
-                  <div key={c.category} className="rounded-lg hairline border p-2.5">
-                    <div className="flex items-center justify-between text-[11.5px]">
-                      <span className="truncate font-medium">{c.category}</span>
-                      <span className="text-muted-foreground tabular-nums">
-                        {c.pass}/{c.total}
-                      </span>
+                  <Tip
+                    key={c.category}
+                    label={`${c.pass} pass · ${c.fail} fail · ${c.err} error out of ${c.total}`}
+                  >
+                    <div className="rounded-lg hairline border p-2.5 cursor-default">
+                      <div className="flex items-center justify-between text-[11.5px]">
+                        <span className="truncate font-medium">{c.category}</span>
+                        <span className="text-muted-foreground tabular-nums">
+                          {c.pass}/{c.total}
+                        </span>
+                      </div>
+                      <div className="mt-1.5 h-1 rounded-full bg-surface-2 overflow-hidden">
+                        <div className={`h-full ${tone}`} style={{ width: `${bar}%` }} />
+                      </div>
                     </div>
-                    <div className="mt-1.5 h-1 rounded-full bg-surface-2 overflow-hidden">
-                      <div className={`h-full ${tone}`} style={{ width: `${bar}%` }} />
-                    </div>
-                  </div>
+                  </Tip>
                 );
               })}
             </div>
@@ -1047,22 +1164,33 @@ function RunDiffModal({ base, head, onClose }: { base: string; head: string; onC
           </div>
           <div className="flex items-center gap-2">
             {data && (
-              <span
-                className={`text-[10.5px] uppercase tracking-widest rounded-full px-2.5 py-1 hairline border ${
+              <Tip
+                label={
                   gateBlocked
-                    ? "text-red-400 bg-red-400/10 border-red-400/30"
-                    : "text-emerald-400 bg-emerald-400/10 border-emerald-400/30"
-                }`}
+                    ? "CI gate would block: one or more attacks regressed"
+                    : "CI gate would pass: no regressions vs baseline"
+                }
               >
-                {gateBlocked ? "gate: block" : "gate: pass"}
-              </span>
+                <span
+                  className={`text-[10.5px] uppercase tracking-widest rounded-full px-2.5 py-1 hairline border cursor-default ${
+                    gateBlocked
+                      ? "text-red-400 bg-red-400/10 border-red-400/30"
+                      : "text-emerald-400 bg-emerald-400/10 border-emerald-400/30"
+                  }`}
+                >
+                  {gateBlocked ? "gate: block" : "gate: pass"}
+                </span>
+              </Tip>
             )}
-            <button
-              onClick={onClose}
-              className="h-8 w-8 rounded-full hairline border text-muted-foreground hover:text-foreground hover:bg-surface-2 transition"
-            >
-              ×
-            </button>
+            <Tip label="Close diff">
+              <button
+                onClick={onClose}
+                className="h-8 w-8 rounded-full hairline border text-muted-foreground hover:text-foreground hover:bg-surface-2 transition"
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </Tip>
           </div>
         </div>
 

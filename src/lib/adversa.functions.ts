@@ -59,6 +59,31 @@ export const listRuns = createServerFn({ method: "GET" })
     return data ?? [];
   });
 
+export const getAttackStats = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("attacks")
+      .select("category,severity,owasp_id,compliance_tags");
+    if (error) throw new Error(error.message);
+    const rows = data ?? [];
+    const categories = new Set(rows.map((r) => r.category));
+    const owasp = new Set(rows.map((r) => r.owasp_id).filter(Boolean) as string[]);
+    const frameworks = new Set<string>();
+    for (const r of rows) {
+      for (const tag of (r.compliance_tags ?? []) as string[]) {
+        const framework = tag.split(":")[0]?.trim();
+        if (framework) frameworks.add(framework);
+      }
+    }
+    return {
+      total: rows.length,
+      categories: categories.size,
+      owasp_covered: owasp.size,
+      frameworks: [...frameworks].sort(),
+    };
+  });
+
 export const getRun = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
