@@ -320,26 +320,150 @@ function StatusPill({ status }: { status: string }) {
 
 // ---------- Modals ----------
 
+// ---------- Guided Connect Wizard ----------
+
+type Preset = {
+  id: string;
+  label: string;
+  blurb: string;
+  endpoint: string;
+  authPrefix: string;
+  keyUrl: string;
+  keySteps: string[];
+  suggestedName: string;
+};
+
+const PRESETS: Preset[] = [
+  {
+    id: "openai",
+    label: "OpenAI",
+    blurb: "GPT-4o, GPT-4.1, o-series — the default LLM everyone starts with.",
+    endpoint: "https://api.openai.com/v1/chat/completions",
+    authPrefix: "Bearer ",
+    keyUrl: "https://platform.openai.com/api-keys",
+    keySteps: [
+      "Open platform.openai.com/api-keys and sign in.",
+      "Click Create new secret key, name it 'adversa', copy the sk-… value.",
+      "Paste it below — we prepend 'Bearer ' for you.",
+    ],
+    suggestedName: "openai-gpt4",
+  },
+  {
+    id: "openrouter",
+    label: "OpenRouter",
+    blurb: "One key, 200+ models (Claude, Llama, Gemini, Mistral…).",
+    endpoint: "https://openrouter.ai/api/v1/chat/completions",
+    authPrefix: "Bearer ",
+    keyUrl: "https://openrouter.ai/keys",
+    keySteps: [
+      "Open openrouter.ai/keys and sign in.",
+      "Click Create Key, copy the sk-or-… value.",
+      "Paste it below — we prepend 'Bearer ' for you.",
+    ],
+    suggestedName: "openrouter-agent",
+  },
+  {
+    id: "groq",
+    label: "Groq",
+    blurb: "Fast Llama / Mixtral inference. Free tier available.",
+    endpoint: "https://api.groq.com/openai/v1/chat/completions",
+    authPrefix: "Bearer ",
+    keyUrl: "https://console.groq.com/keys",
+    keySteps: [
+      "Open console.groq.com/keys and sign in.",
+      "Click Create API Key, copy the gsk_… value.",
+      "Paste it below — we prepend 'Bearer ' for you.",
+    ],
+    suggestedName: "groq-llama",
+  },
+  {
+    id: "custom",
+    label: "Custom / self-hosted",
+    blurb: "Your own agent behind any URL that speaks OpenAI-style chat.",
+    endpoint: "",
+    authPrefix: "",
+    keyUrl: "",
+    keySteps: [
+      "Deploy an endpoint that accepts POST { messages: [{ role, content }] }.",
+      "Return { choices: [{ message: { content } }] } — the OpenAI shape.",
+      "Add any auth header your service requires (or leave blank).",
+    ],
+    suggestedName: "my-agent",
+  },
+];
+
+type Step = "path" | "provider" | "credentials" | "test" | "done";
+
 function ConnectAgentModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
   const create = useServerFn(createAgent);
+
+  const [step, setStep] = useState<Step>("path");
+  const [preset, setPreset] = useState<Preset | null>(null);
   const [name, setName] = useState("");
   const [endpoint, setEndpoint] = useState("");
-  const [auth, setAuth] = useState("");
+  const [rawKey, setRawKey] = useState("");
+  const [authHeader, setAuthHeader] = useState("");
+  const [testStatus, setTestStatus] = useState<"idle" | "testing" | "ok" | "fail">("idle");
+  const [testMsg, setTestMsg] = useState("");
+
   const mut = useMutation({
     mutationFn: () =>
-      create({
-        data: {
-          name,
-          endpoint,
-          auth_header: auth || null,
-        },
-      }),
+      create({ data: { name, endpoint, auth_header: authHeader || null } }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["agents"] });
       onClose();
     },
   });
+
+  function choosePath(guided: boolean) {
+    setStep(guided ? "provider" : "credentials");
+  }
+
+  function choosePreset(p: Preset) {
+    setPreset(p);
+    setEndpoint(p.endpoint);
+    setName(p.suggestedName);
+    setAuthHeader("");
+    setRawKey("");
+    setStep("credentials");
+  }
+
+  async function testConnection() {
+    setTestStatus("testing");
+    setTestMsg("");
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (authHeader) headers["Authorization"] = authHeader;
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          model: preset?.id === "groq" ? "llama-3.1-8b-instant" : "gpt-4o-mini",
+          messages: [{ role: "user", content: "Reply with the single word: ok" }],
+        }),
+      });
+      if (!res.ok) {
+        setTestStatus("fail");
+        setTestMsg(`HTTP ${res.status} — ${await res.text().then((t) => t.slice(0, 160))}`);
+        return;
+      }
+      const json = await res.json();
+      const content = json?.choices?.[0]?.message?.content;
+      if (typeof content === "string") {
+        setTestStatus("ok");
+        setTestMsg(`Reply: "${content.slice(0, 80)}"`);
+      } else {
+        setTestStatus("fail");
+        setTestMsg("Response shape is not OpenAI-compatible (no choices[0].message.content).");
+      }
+    } catch (e) {
+      setTestStatus("fail");
+      setTestMsg((e as Error).message);
+    }
+  }
+
+  const canSave = name.trim() && endpoint.trim();
 
   return (
     <div
@@ -347,88 +471,229 @@ function ConnectAgentModal({ onClose }: { onClose: () => void }) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl hairline border bg-surface-1 p-6 shadow-2xl"
+        className="w-full max-w-lg max-h-[90vh] overflow-hidden rounded-2xl hairline border bg-surface-1 shadow-2xl flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground/70">Setup</div>
-            <h2 className="mt-1 text-[20px] font-semibold tracking-tight">Connect an agent</h2>
+        <div className="p-5 border-b hairline flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground/70">
+              {step === "path" && "Setup"}
+              {step === "provider" && "Step 1 of 3 · Provider"}
+              {step === "credentials" && (preset ? "Step 2 of 3 · Credentials" : "Connect")}
+              {step === "test" && "Step 3 of 3 · Verify"}
+            </div>
+            <h2 className="mt-1 text-[20px] font-semibold tracking-tight">
+              {step === "path" && "Connect an agent"}
+              {step === "provider" && "Which model powers your agent?"}
+              {step === "credentials" && (preset ? `Get your ${preset.label} key` : "Enter endpoint")}
+              {step === "test" && "Test the connection"}
+            </h2>
           </div>
           <button
             onClick={onClose}
-            className="h-8 w-8 rounded-full hairline border text-muted-foreground hover:text-foreground hover:bg-surface-2 transition"
+            className="h-8 w-8 shrink-0 rounded-full hairline border text-muted-foreground hover:text-foreground hover:bg-surface-2 transition"
             aria-label="Close"
           >
             ×
           </button>
         </div>
-        <p className="mt-2 text-[12.5px] text-muted-foreground">
-          Adversa POSTs each attack prompt to your endpoint as{" "}
-          <code className="text-foreground/80">{`{ messages: [{ role: 'user', content: '<prompt>' }] }`}</code>{" "}
-          and reads the reply from <code className="text-foreground/80">choices.0.message.content</code>{" "}
-          (OpenAI-compatible).
-        </p>
 
-        <form
-          className="mt-5 space-y-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            mut.mutate();
-          }}
-        >
-          <Field label="Agent name">
-            <input
-              required
-              maxLength={80}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="support-copilot"
-              className="w-full h-10 rounded-lg hairline border bg-background px-3 text-[13.5px] outline-none focus:border-foreground/30"
-            />
-          </Field>
-          <Field label="Endpoint URL">
-            <input
-              required
-              type="url"
-              value={endpoint}
-              onChange={(e) => setEndpoint(e.target.value)}
-              placeholder="https://api.your-agent.com/v1/chat/completions"
-              className="w-full h-10 rounded-lg hairline border bg-background px-3 text-[13.5px] outline-none focus:border-foreground/30"
-            />
-          </Field>
-          <Field label="Auth header (optional)">
-            <input
-              value={auth}
-              onChange={(e) => setAuth(e.target.value)}
-              placeholder="Bearer sk-…"
-              className="w-full h-10 rounded-lg hairline border bg-background px-3 text-[13.5px] outline-none focus:border-foreground/30"
-            />
-          </Field>
-
-          {mut.isError && (
-            <div className="text-[12px] text-red-500">
-              {(mut.error as Error)?.message ?? "Failed to save"}
+        <div className="flex-1 overflow-auto p-5">
+          {step === "path" && (
+            <div className="space-y-3">
+              <p className="text-[13px] text-muted-foreground">
+                An "agent" here is any HTTP endpoint that talks to an LLM. Adversa POSTs adversarial
+                prompts to it and grades the replies.
+              </p>
+              <button
+                onClick={() => choosePath(true)}
+                className="w-full text-left rounded-xl hairline border p-4 hover:bg-surface-2 transition"
+              >
+                <div className="text-[14px] font-medium">Walk me through it</div>
+                <div className="mt-1 text-[12.5px] text-muted-foreground">
+                  Pick a provider, we'll show you exactly where to grab the API key.
+                </div>
+              </button>
+              <button
+                onClick={() => choosePath(false)}
+                className="w-full text-left rounded-xl hairline border p-4 hover:bg-surface-2 transition"
+              >
+                <div className="text-[14px] font-medium">I already have an endpoint</div>
+                <div className="mt-1 text-[12.5px] text-muted-foreground">
+                  Skip ahead and paste your URL + auth header.
+                </div>
+              </button>
             </div>
           )}
 
-          <div className="pt-2 flex items-center gap-2">
-            <button
-              type="submit"
-              disabled={mut.isPending}
-              className="h-10 rounded-full bg-foreground text-background px-5 text-[13.5px] font-medium hover:opacity-90 transition disabled:opacity-60"
-            >
-              {mut.isPending ? "Saving…" : "Save agent"}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="h-10 rounded-full hairline border px-4 text-[13px] text-muted-foreground hover:text-foreground hover:bg-surface-2 transition"
-            >
-              Cancel
-            </button>
+          {step === "provider" && (
+            <div className="space-y-2">
+              {PRESETS.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => choosePreset(p)}
+                  className="w-full text-left rounded-xl hairline border p-4 hover:bg-surface-2 transition"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-[14px] font-medium">{p.label}</div>
+                    <span className="text-muted-foreground text-[13px]">›</span>
+                  </div>
+                  <div className="mt-1 text-[12.5px] text-muted-foreground">{p.blurb}</div>
+                </button>
+              ))}
+              <p className="pt-2 text-[11.5px] text-muted-foreground">
+                Don't have an agent at all? Pick <span className="text-foreground">OpenAI</span> — the free tier
+                is enough to try Adversa, and it takes 30 seconds to sign up.
+              </p>
+            </div>
+          )}
+
+          {step === "credentials" && (
+            <div className="space-y-4">
+              {preset && preset.keySteps.length > 0 && (
+                <div className="rounded-xl hairline border p-4 bg-surface-2/40">
+                  <div className="text-[11px] uppercase tracking-widest text-muted-foreground/70">
+                    How to get your key
+                  </div>
+                  <ol className="mt-2 space-y-1.5 text-[12.5px] text-foreground/90 list-decimal list-inside">
+                    {preset.keySteps.map((s, i) => (
+                      <li key={i}>{s}</li>
+                    ))}
+                  </ol>
+                  {preset.keyUrl && (
+                    <a
+                      href={preset.keyUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-3 inline-flex items-center gap-1.5 text-[12.5px] text-accent hover:underline"
+                    >
+                      Open {new URL(preset.keyUrl).hostname} ↗
+                    </a>
+                  )}
+                </div>
+              )}
+
+              <Field label="Agent name">
+                <input
+                  required
+                  maxLength={80}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="support-copilot"
+                  className="w-full h-10 rounded-lg hairline border bg-background px-3 text-[13.5px] outline-none focus:border-foreground/30"
+                />
+              </Field>
+
+              <Field label="Endpoint URL">
+                <input
+                  required
+                  type="url"
+                  value={endpoint}
+                  onChange={(e) => setEndpoint(e.target.value)}
+                  placeholder="https://api.your-agent.com/v1/chat/completions"
+                  className="w-full h-10 rounded-lg hairline border bg-background px-3 text-[13.5px] outline-none focus:border-foreground/30"
+                />
+              </Field>
+
+              {preset && preset.authPrefix ? (
+                <Field label={`API key (we add "${preset.authPrefix.trim()}" for you)`}>
+                  <input
+                    value={rawKey}
+                    onChange={(e) => {
+                      setRawKey(e.target.value);
+                      setAuthHeader(e.target.value ? `${preset.authPrefix}${e.target.value}` : "");
+                    }}
+                    placeholder="sk-…"
+                    className="w-full h-10 rounded-lg hairline border bg-background px-3 text-[13.5px] outline-none focus:border-foreground/30 font-mono"
+                  />
+                </Field>
+              ) : (
+                <Field label="Auth header (optional)">
+                  <input
+                    value={authHeader}
+                    onChange={(e) => setAuthHeader(e.target.value)}
+                    placeholder="Bearer sk-…"
+                    className="w-full h-10 rounded-lg hairline border bg-background px-3 text-[13.5px] outline-none focus:border-foreground/30 font-mono"
+                  />
+                </Field>
+              )}
+
+              <p className="text-[11.5px] text-muted-foreground">
+                Your key is stored encrypted and only used to call your endpoint. It never leaves your workspace.
+              </p>
+            </div>
+          )}
+
+          {step === "test" && (
+            <div className="space-y-4">
+              <p className="text-[13px] text-muted-foreground">
+                We'll send a single "reply with ok" probe to make sure your endpoint answers before running the full suite.
+              </p>
+              <div className="rounded-xl hairline border p-4 space-y-2 text-[12.5px]">
+                <div className="flex gap-2"><span className="text-muted-foreground w-20">Endpoint</span><span className="font-mono truncate">{endpoint}</span></div>
+                <div className="flex gap-2"><span className="text-muted-foreground w-20">Auth</span><span className="font-mono truncate">{authHeader ? authHeader.slice(0, 20) + "…" : "(none)"}</span></div>
+              </div>
+              <button
+                onClick={testConnection}
+                disabled={testStatus === "testing"}
+                className="h-10 rounded-full hairline border px-4 text-[13px] hover:bg-surface-2 transition disabled:opacity-60"
+              >
+                {testStatus === "testing" ? "Testing…" : "Run test probe"}
+              </button>
+              {testStatus === "ok" && (
+                <div className="rounded-lg border border-emerald-400/30 bg-emerald-400/5 p-3 text-[12.5px] text-emerald-300">
+                  ✓ Connection works. {testMsg}
+                </div>
+              )}
+              {testStatus === "fail" && (
+                <div className="rounded-lg border border-red-400/30 bg-red-400/5 p-3 text-[12.5px] text-red-300">
+                  ✕ {testMsg}
+                  <div className="mt-1 text-muted-foreground">You can still save and debug later.</div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="p-4 border-t hairline flex items-center justify-between gap-2">
+          <button
+            onClick={() => {
+              if (step === "provider") setStep("path");
+              else if (step === "credentials") setStep(preset ? "provider" : "path");
+              else if (step === "test") setStep("credentials");
+              else onClose();
+            }}
+            className="h-9 rounded-full hairline border px-4 text-[12.5px] text-muted-foreground hover:text-foreground hover:bg-surface-2 transition"
+          >
+            {step === "path" ? "Cancel" : "Back"}
+          </button>
+
+          <div className="flex items-center gap-2">
+            {mut.isError && (
+              <span className="text-[12px] text-red-400 mr-2">
+                {(mut.error as Error)?.message ?? "Failed to save"}
+              </span>
+            )}
+            {step === "credentials" && (
+              <button
+                onClick={() => setStep("test")}
+                disabled={!canSave}
+                className="h-9 rounded-full hairline border px-4 text-[12.5px] hover:bg-surface-2 transition disabled:opacity-40"
+              >
+                Test →
+              </button>
+            )}
+            {(step === "credentials" || step === "test") && (
+              <button
+                onClick={() => mut.mutate()}
+                disabled={!canSave || mut.isPending}
+                className="h-9 rounded-full bg-foreground text-background px-5 text-[13px] font-medium hover:opacity-90 transition disabled:opacity-40"
+              >
+                {mut.isPending ? "Saving…" : "Save agent"}
+              </button>
+            )}
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );
@@ -437,11 +702,12 @@ function ConnectAgentModal({ onClose }: { onClose: () => void }) {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <div className="text-[12px] text-muted-foreground mb-1">{label}</div>
+      <div className="text-[12px] text-muted-foreground mb-1.5">{label}</div>
       {children}
     </label>
   );
 }
+
 
 function RunDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
   const get = useServerFn(getRun);
