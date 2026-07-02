@@ -8,6 +8,7 @@ import { Mark } from "./index";
 import {
   createAgent,
   deleteAgent,
+  diffRuns,
   getRun,
   listAgents,
   listRuns,
