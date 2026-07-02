@@ -519,7 +519,10 @@ type Preset = {
   keyUrl: string;
   keySteps: string[];
   suggestedName: string;
+  defaultModel: string;
+  modelHint: string;
 };
+
 
 const PRESETS: Preset[] = [
   {
@@ -535,6 +538,8 @@ const PRESETS: Preset[] = [
       "Paste it below — we prepend 'Bearer ' for you.",
     ],
     suggestedName: "openai-gpt4",
+    defaultModel: "gpt-4o-mini",
+    modelHint: "e.g. gpt-4o-mini, gpt-4o, gpt-4.1-mini",
   },
   {
     id: "openrouter",
@@ -549,6 +554,8 @@ const PRESETS: Preset[] = [
       "Paste it below — we prepend 'Bearer ' for you.",
     ],
     suggestedName: "openrouter-agent",
+    defaultModel: "openai/gpt-4o-mini",
+    modelHint: "OpenRouter models use vendor/model — e.g. openai/gpt-4o-mini, anthropic/claude-3.5-sonnet, meta-llama/llama-3.1-8b-instruct",
   },
   {
     id: "groq",
@@ -563,6 +570,8 @@ const PRESETS: Preset[] = [
       "Paste it below — we prepend 'Bearer ' for you.",
     ],
     suggestedName: "groq-llama",
+    defaultModel: "llama-3.1-8b-instant",
+    modelHint: "e.g. llama-3.1-8b-instant, llama-3.3-70b-versatile",
   },
   {
     id: "custom",
@@ -577,7 +586,10 @@ const PRESETS: Preset[] = [
       "Add any auth header your service requires (or leave blank).",
     ],
     suggestedName: "my-agent",
+    defaultModel: "",
+    modelHint: "Optional — leave blank if your endpoint infers the model.",
   },
+
 ];
 
 type Step = "path" | "provider" | "credentials" | "test" | "done";
@@ -592,12 +604,13 @@ function ConnectAgentModal({ onClose }: { onClose: () => void }) {
   const [endpoint, setEndpoint] = useState("");
   const [rawKey, setRawKey] = useState("");
   const [authHeader, setAuthHeader] = useState("");
+  const [model, setModel] = useState("");
   const [testStatus, setTestStatus] = useState<"idle" | "testing" | "ok" | "fail">("idle");
   const [testMsg, setTestMsg] = useState("");
 
   const mut = useMutation({
     mutationFn: () =>
-      create({ data: { name, endpoint, auth_header: authHeader || null } }),
+      create({ data: { name, endpoint, auth_header: authHeader || null, model: model.trim() || null } }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["agents"] });
       onClose();
@@ -614,6 +627,7 @@ function ConnectAgentModal({ onClose }: { onClose: () => void }) {
     setName(p.suggestedName);
     setAuthHeader("");
     setRawKey("");
+    setModel(p.defaultModel);
     setStep("credentials");
   }
 
@@ -623,14 +637,16 @@ function ConnectAgentModal({ onClose }: { onClose: () => void }) {
     try {
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (authHeader) headers["Authorization"] = authHeader;
+      const body: Record<string, unknown> = {
+        messages: [{ role: "user", content: "Reply with the single word: ok" }],
+      };
+      if (model.trim()) body.model = model.trim();
       const res = await fetch(endpoint, {
         method: "POST",
         headers,
-        body: JSON.stringify({
-          model: preset?.id === "groq" ? "llama-3.1-8b-instant" : "gpt-4o-mini",
-          messages: [{ role: "user", content: "Reply with the single word: ok" }],
-        }),
+        body: JSON.stringify(body),
       });
+
       if (!res.ok) {
         setTestStatus("fail");
         setTestMsg(`HTTP ${res.status} — ${await res.text().then((t) => t.slice(0, 160))}`);
@@ -806,11 +822,24 @@ function ConnectAgentModal({ onClose }: { onClose: () => void }) {
                 </Field>
               )}
 
+              <Field label="Model">
+                <input
+                  value={model}
+                  onChange={(e) => setModel(e.target.value)}
+                  placeholder={preset?.defaultModel || "gpt-4o-mini"}
+                  className="w-full h-10 rounded-lg hairline border bg-background px-3 text-[13.5px] outline-none focus:border-foreground/30 font-mono"
+                />
+                {preset?.modelHint && (
+                  <p className="mt-1.5 text-[11.5px] text-muted-foreground">{preset.modelHint}</p>
+                )}
+              </Field>
+
               <p className="text-[11.5px] text-muted-foreground">
                 Your key is stored encrypted and only used to call your endpoint. It never leaves your workspace.
               </p>
             </div>
           )}
+
 
           {step === "test" && (
             <div className="space-y-4">

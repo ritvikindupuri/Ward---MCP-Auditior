@@ -6,6 +6,7 @@ const agentInput = z.object({
   name: z.string().trim().min(1).max(80),
   endpoint: z.string().trim().url().max(500),
   auth_header: z.string().trim().max(2000).optional().nullable(),
+  model: z.string().trim().max(200).optional().nullable(),
 });
 
 export const createAgent = createServerFn({ method: "POST" })
@@ -13,6 +14,10 @@ export const createAgent = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => agentInput.parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+    const template: Record<string, unknown> = {
+      messages: [{ role: "user", content: "{{prompt}}" }],
+    };
+    if (data.model) template.model = data.model;
     const { data: row, error } = await supabase
       .from("agents")
       .insert({
@@ -20,12 +25,14 @@ export const createAgent = createServerFn({ method: "POST" })
         name: data.name,
         endpoint: data.endpoint,
         auth_header: data.auth_header || null,
+        request_template: template as never,
       })
       .select()
       .single();
     if (error) throw new Error(error.message);
     return row;
   });
+
 
 export const listAgents = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
