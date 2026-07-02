@@ -19,6 +19,11 @@ function AppShell() {
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
   const [active, setActive] = useState<"Suites" | "Scenarios" | "Attacks" | "Traces" | "Reports">("Suites");
+  const [connectOpen, setConnectOpen] = useState(false);
+  const [endpoint, setEndpoint] = useState("");
+  const [agentName, setAgentName] = useState("");
+  const [authHeader, setAuthHeader] = useState("");
+  const [connectStatus, setConnectStatus] = useState<null | "saving" | "saved">(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -140,7 +145,10 @@ function AppShell() {
                   <p className="mt-1.5 text-[13px] text-muted-foreground max-w-sm mx-auto">
                     Connect your first agent endpoint to start stress-testing. Every trace, tool call, and failure will land here.
                   </p>
-                  <button className="mt-5 h-10 rounded-full bg-foreground text-background px-5 text-[13.5px] font-medium hover:opacity-90 transition">
+                  <button
+                    onClick={() => { setConnectStatus(null); setConnectOpen(true); }}
+                    className="mt-5 h-10 rounded-full bg-foreground text-background px-5 text-[13.5px] font-medium hover:opacity-90 transition"
+                  >
                     Connect an agent
                   </button>
                 </div>
@@ -159,6 +167,101 @@ function AppShell() {
           </main>
         </div>
       </div>
+
+      {connectOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/70 backdrop-blur-md"
+          onClick={() => setConnectOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl hairline border bg-surface-1 p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground/70">Setup</div>
+                <h2 className="mt-1 text-[20px] font-semibold tracking-tight">Connect an agent</h2>
+              </div>
+              <button
+                onClick={() => setConnectOpen(false)}
+                className="h-8 w-8 rounded-full hairline border text-muted-foreground hover:text-foreground hover:bg-surface-2 transition"
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+            <p className="mt-2 text-[13px] text-muted-foreground">
+              Point Adversa at a running agent endpoint. We'll send probes and record every response.
+            </p>
+
+            <form
+              className="mt-5 space-y-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                setConnectStatus("saving");
+                setTimeout(() => {
+                  setConnectStatus("saved");
+                  setTimeout(() => {
+                    setConnectOpen(false);
+                    setEndpoint("");
+                    setAgentName("");
+                    setAuthHeader("");
+                    setConnectStatus(null);
+                  }, 700);
+                }, 500);
+              }}
+            >
+              <div>
+                <label className="text-[12px] text-muted-foreground">Agent name</label>
+                <input
+                  required
+                  value={agentName}
+                  onChange={(e) => setAgentName(e.target.value)}
+                  placeholder="support-copilot"
+                  className="mt-1 w-full h-10 rounded-lg hairline border bg-background px-3 text-[13.5px] outline-none focus:border-foreground/30"
+                />
+              </div>
+              <div>
+                <label className="text-[12px] text-muted-foreground">Endpoint URL</label>
+                <input
+                  required
+                  type="url"
+                  value={endpoint}
+                  onChange={(e) => setEndpoint(e.target.value)}
+                  placeholder="https://api.your-agent.com/chat"
+                  className="mt-1 w-full h-10 rounded-lg hairline border bg-background px-3 text-[13.5px] outline-none focus:border-foreground/30"
+                />
+              </div>
+              <div>
+                <label className="text-[12px] text-muted-foreground">Auth header (optional)</label>
+                <input
+                  value={authHeader}
+                  onChange={(e) => setAuthHeader(e.target.value)}
+                  placeholder="Bearer sk-…"
+                  className="mt-1 w-full h-10 rounded-lg hairline border bg-background px-3 text-[13.5px] outline-none focus:border-foreground/30"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center gap-2">
+                <button
+                  type="submit"
+                  disabled={connectStatus === "saving"}
+                  className="h-10 rounded-full bg-foreground text-background px-5 text-[13.5px] font-medium hover:opacity-90 transition disabled:opacity-60"
+                >
+                  {connectStatus === "saving" ? "Connecting…" : connectStatus === "saved" ? "Connected ✓" : "Connect"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConnectOpen(false)}
+                  className="h-10 rounded-full hairline border px-4 text-[13px] text-muted-foreground hover:text-foreground hover:bg-surface-2 transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
