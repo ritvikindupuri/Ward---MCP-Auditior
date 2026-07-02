@@ -280,24 +280,31 @@ function RunsPanel({
   onCompare: (base: string, head: string) => void;
 }) {
   const list = useServerFn(listRuns);
+  const stats = useServerFn(getAttackStats);
   const { data: runs = [], isLoading } = useQuery<RunRow[]>({
     queryKey: ["runs"],
     queryFn: () => list() as Promise<RunRow[]>,
     refetchInterval: 4000,
   });
+  const { data: attackStats } = useQuery<{ total: number; categories: number; owasp_covered: number; frameworks: string[] }>({
+    queryKey: ["attack-stats"],
+    queryFn: () => stats() as Promise<{ total: number; categories: number; owasp_covered: number; frameworks: string[] }>,
+    staleTime: 60_000,
+  });
 
   const [baseId, setBaseId] = useState<string | null>(null);
   const [headId, setHeadId] = useState<string | null>(null);
 
-  const stats = useMemo(() => {
+  const aggregate = useMemo(() => {
     const done = runs.filter((r) => r.status === "complete");
     const totalPass = done.reduce((a, r) => a + (r.pass_count ?? 0), 0);
     const totalRun = done.reduce((a, r) => a + (r.total ?? 0), 0);
     const rate = totalRun ? Math.round((totalPass / totalRun) * 100) : null;
-    return { runs: runs.length, rate };
+    return { runs: runs.length, done: done.length, rate };
   }, [runs]);
 
   const canCompare = baseId && headId && baseId !== headId;
+  const attackCount = attackStats?.total ?? null;
 
   return (
     <>
@@ -305,21 +312,56 @@ function RunsPanel({
         <div className="flex items-center justify-between p-5 border-b hairline">
           <div>
             <div className="text-[11px] uppercase tracking-widest text-muted-foreground/70">Overview</div>
-            <div className="mt-1 text-[15px] font-medium">Adversarial suite · v0.1</div>
+            <div className="mt-1 text-[15px] font-medium">Adversarial suite</div>
           </div>
           <div className="flex items-center gap-2 text-[12px]">
-            <span className="rounded-md glass px-2 py-1">{stats.runs} runs</span>
-            <span className="rounded-md hairline border px-2.5 py-1 text-muted-foreground">
-              {stats.rate == null ? "—" : `${stats.rate}% pass`}
-            </span>
+            <Tip label={`${aggregate.done} complete of ${aggregate.runs} total`}>
+              <span className="rounded-md glass px-2 py-1 cursor-default">{aggregate.runs} runs</span>
+            </Tip>
+            <Tip label="Aggregate pass rate across all completed runs">
+              <span className="rounded-md hairline border px-2.5 py-1 text-muted-foreground cursor-default">
+                {aggregate.rate == null ? "—" : `${aggregate.rate}% pass`}
+              </span>
+            </Tip>
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-5">
-          <Stat label="Total runs" value={stats.runs.toString()} />
-          <Stat label="Pass rate" value={stats.rate == null ? "—" : `${stats.rate}%`} />
-          <Stat label="Attacks per run" value="12" />
+          <Stat
+            label="Total runs"
+            value={aggregate.runs.toString()}
+            tip="Runs executed in this workspace"
+          />
+          <Stat
+            label="Pass rate"
+            value={aggregate.rate == null ? "—" : `${aggregate.rate}%`}
+            tip="Share of adversarial probes the agent handled safely"
+          />
+          <Stat
+            label="Attacks per run"
+            value={attackCount == null ? "…" : attackCount.toString()}
+            tip={
+              attackStats
+                ? `${attackStats.total} probes across ${attackStats.categories} categories, ${attackStats.owasp_covered} OWASP LLM entries`
+                : "Loading adversarial library…"
+            }
+          />
         </div>
+
+        {attackStats && attackStats.frameworks.length > 0 && (
+          <div className="px-5 pb-4 flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10.5px] uppercase tracking-widest text-muted-foreground/70 mr-1">
+              Compliance coverage
+            </span>
+            {attackStats.frameworks.map((f) => (
+              <Tip key={f} label={`Probes mapped to ${f} controls`}>
+                <span className="text-[10.5px] px-2 py-0.5 rounded-full hairline border text-muted-foreground cursor-default">
+                  {f}
+                </span>
+              </Tip>
+            ))}
+          </div>
+        )}
 
         <div className="px-5 pb-2 flex items-center justify-between gap-3 text-[12px] text-muted-foreground">
           <div className="truncate">
@@ -330,23 +372,33 @@ function RunsPanel({
           </div>
           <div className="flex items-center gap-2">
             {(baseId || headId) && (
-              <button
-                onClick={() => {
-                  setBaseId(null);
-                  setHeadId(null);
-                }}
-                className="h-7 px-2.5 rounded-full hairline border hover:bg-surface-2 transition"
-              >
-                Clear
-              </button>
+              <Tip label="Clear the current baseline/compare selection">
+                <button
+                  onClick={() => {
+                    setBaseId(null);
+                    setHeadId(null);
+                  }}
+                  className="h-7 px-2.5 rounded-full hairline border hover:bg-surface-2 transition"
+                >
+                  Clear
+                </button>
+              </Tip>
             )}
-            <button
-              disabled={!canCompare}
-              onClick={() => canCompare && onCompare(baseId!, headId!)}
-              className="h-7 px-3 rounded-full bg-accent text-accent-foreground text-[12px] font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+            <Tip
+              label={
+                canCompare
+                  ? "Open regression diff between selected runs"
+                  : "Pick a baseline and a compare run first"
+              }
             >
-              View diff →
-            </button>
+              <button
+                disabled={!canCompare}
+                onClick={() => canCompare && onCompare(baseId!, headId!)}
+                className="h-7 px-3 rounded-full bg-accent text-accent-foreground text-[12px] font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                View diff →
+              </button>
+            </Tip>
           </div>
         </div>
 
@@ -371,49 +423,56 @@ function RunsPanel({
                     key={r.id}
                     className="w-full px-4 py-3 hover:bg-surface-2 transition flex items-center gap-3"
                   >
-                    <button onClick={() => onOpenRun(r.id)} className="flex-1 min-w-0 text-left">
-                      <div className="text-[13px] font-medium truncate">
-                        Run · {new Date(r.started_at).toLocaleString()}
-                      </div>
-                      <div className="text-[11.5px] text-muted-foreground">
-                        {r.status === "running"
-                          ? "In progress…"
-                          : `${r.pass_count}/${r.total} passed · ${r.fail_count} fail · ${r.error_count} error`}
-                      </div>
-                    </button>
+                    <Tip label="Open full report with traces + judge reasoning" side="top">
+                      <button onClick={() => onOpenRun(r.id)} className="flex-1 min-w-0 text-left">
+                        <div className="text-[13px] font-medium truncate">
+                          Run · {new Date(r.started_at).toLocaleString()}
+                        </div>
+                        <div className="text-[11.5px] text-muted-foreground">
+                          {r.status === "running"
+                            ? "In progress…"
+                            : `${r.pass_count}/${r.total} passed · ${r.fail_count} fail · ${r.error_count} error`}
+                        </div>
+                      </button>
+                    </Tip>
                     <StatusPill status={r.status} />
                     {completed && (
                       <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => setBaseId(isBase ? null : r.id)}
-                          className={`h-7 px-2 rounded-md text-[10.5px] uppercase tracking-widest transition hairline border ${
-                            isBase
-                              ? "bg-accent/15 text-accent border-accent/40"
-                              : "text-muted-foreground hover:bg-surface-2"
-                          }`}
-                          title="Use as regression baseline"
-                        >
-                          base
-                        </button>
-                        <button
-                          onClick={() => setHeadId(isHead ? null : r.id)}
-                          className={`h-7 px-2 rounded-md text-[10.5px] uppercase tracking-widest transition hairline border ${
-                            isHead
-                              ? "bg-accent/15 text-accent border-accent/40"
-                              : "text-muted-foreground hover:bg-surface-2"
-                          }`}
-                          title="Compare against baseline"
-                        >
-                          vs
-                        </button>
+                        <Tip label="Use as regression baseline (v1)">
+                          <button
+                            onClick={() => setBaseId(isBase ? null : r.id)}
+                            className={`h-7 px-2 rounded-md text-[10.5px] uppercase tracking-widest transition hairline border ${
+                              isBase
+                                ? "bg-accent/15 text-accent border-accent/40"
+                                : "text-muted-foreground hover:bg-surface-2"
+                            }`}
+                          >
+                            base
+                          </button>
+                        </Tip>
+                        <Tip label="Compare against baseline (v2)">
+                          <button
+                            onClick={() => setHeadId(isHead ? null : r.id)}
+                            className={`h-7 px-2 rounded-md text-[10.5px] uppercase tracking-widest transition hairline border ${
+                              isHead
+                                ? "bg-accent/15 text-accent border-accent/40"
+                                : "text-muted-foreground hover:bg-surface-2"
+                            }`}
+                          >
+                            vs
+                          </button>
+                        </Tip>
                       </div>
                     )}
-                    <button
-                      onClick={() => onOpenRun(r.id)}
-                      className="text-muted-foreground hover:text-foreground"
-                    >
-                      ›
-                    </button>
+                    <Tip label="Open run">
+                      <button
+                        onClick={() => onOpenRun(r.id)}
+                        className="text-muted-foreground hover:text-foreground"
+                        aria-label="Open run"
+                      >
+                        ›
+                      </button>
+                    </Tip>
                   </div>
                 );
               })}
