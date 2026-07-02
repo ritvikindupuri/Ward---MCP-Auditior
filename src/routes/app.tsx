@@ -1164,22 +1164,33 @@ function RunDiffModal({ base, head, onClose }: { base: string; head: string; onC
           </div>
           <div className="flex items-center gap-2">
             {data && (
-              <span
-                className={`text-[10.5px] uppercase tracking-widest rounded-full px-2.5 py-1 hairline border ${
+              <Tip
+                label={
                   gateBlocked
-                    ? "text-red-400 bg-red-400/10 border-red-400/30"
-                    : "text-emerald-400 bg-emerald-400/10 border-emerald-400/30"
-                }`}
+                    ? "CI gate would block: one or more attacks regressed"
+                    : "CI gate would pass: no regressions vs baseline"
+                }
               >
-                {gateBlocked ? "gate: block" : "gate: pass"}
-              </span>
+                <span
+                  className={`text-[10.5px] uppercase tracking-widest rounded-full px-2.5 py-1 hairline border cursor-default ${
+                    gateBlocked
+                      ? "text-red-400 bg-red-400/10 border-red-400/30"
+                      : "text-emerald-400 bg-emerald-400/10 border-emerald-400/30"
+                  }`}
+                >
+                  {gateBlocked ? "gate: block" : "gate: pass"}
+                </span>
+              </Tip>
             )}
-            <button
-              onClick={onClose}
-              className="h-8 w-8 rounded-full hairline border text-muted-foreground hover:text-foreground hover:bg-surface-2 transition"
-            >
-              ×
-            </button>
+            <Tip label="Close diff">
+              <button
+                onClick={onClose}
+                className="h-8 w-8 rounded-full hairline border text-muted-foreground hover:text-foreground hover:bg-surface-2 transition"
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </Tip>
           </div>
         </div>
 
