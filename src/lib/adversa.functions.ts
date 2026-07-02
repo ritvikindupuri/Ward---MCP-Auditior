@@ -25,7 +25,7 @@ export const createAgent = createServerFn({ method: "POST" })
         name: data.name,
         endpoint: data.endpoint,
         auth_header: data.auth_header || null,
-        request_template: template,
+        request_template: template as never,
       })
       .select()
       .single();
