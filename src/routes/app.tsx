@@ -134,7 +134,7 @@ function AppShell() {
             <AgentsPanel onConnect={() => setConnectOpen(true)} />
           </aside>
           <main className="col-span-12 md:col-span-8 space-y-6">
-            <RunsPanel onOpenRun={setOpenRunId} />
+            <RunsPanel onOpenRun={setOpenRunId} onCompare={(base, head) => setDiffPair({ base, head })} />
           </main>
         </div>
       </div>
