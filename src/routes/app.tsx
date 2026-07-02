@@ -176,9 +176,15 @@ function AgentsPanel({ onConnect }: { onConnect: () => void }) {
   const list = useServerFn(listAgents);
   const del = useServerFn(deleteAgent);
   const run = useServerFn(startRun);
+  const stats = useServerFn(getAttackStats);
   const { data: agents = [], isLoading } = useQuery<AgentRow[]>({
     queryKey: ["agents"],
     queryFn: () => list() as Promise<AgentRow[]>,
+  });
+  const { data: attackStats } = useQuery<{ total: number; categories: number; owasp_covered: number; frameworks: string[] }>({
+    queryKey: ["attack-stats"],
+    queryFn: () => stats() as Promise<{ total: number; categories: number; owasp_covered: number; frameworks: string[] }>,
+    staleTime: 60_000,
   });
   const removeMut = useMutation({
     mutationFn: (id: string) => del({ data: { id } }),
@@ -189,11 +195,15 @@ function AgentsPanel({ onConnect }: { onConnect: () => void }) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["runs"] }),
   });
 
+  const attackCount = attackStats?.total ?? null;
+
   return (
     <section className="rounded-2xl hairline border p-5">
       <div className="flex items-center justify-between">
         <div className="text-[15px] font-medium">Agents</div>
-        <span className="text-[12px] text-muted-foreground">{agents.length}</span>
+        <Tip label="Agents registered in this workspace">
+          <span className="text-[12px] text-muted-foreground cursor-default">{agents.length}</span>
+        </Tip>
       </div>
       <div className="mt-4 space-y-2">
         {isLoading && <div className="text-[13px] text-muted-foreground">Loading…</div>}
@@ -201,38 +211,52 @@ function AgentsPanel({ onConnect }: { onConnect: () => void }) {
           <div className="rounded-xl border hairline border-dashed p-6 text-center">
             <div className="text-[13.5px] font-medium">No agents yet</div>
             <p className="mt-1 text-[12.5px] text-muted-foreground">Point Adversa at an endpoint to begin.</p>
-            <button
-              onClick={onConnect}
-              className="mt-4 h-9 rounded-full bg-foreground text-background px-4 text-[12.5px] font-medium hover:opacity-90 transition"
-            >
-              Connect agent
-            </button>
+            <Tip label="Guided setup — OpenAI, OpenRouter, Groq or custom">
+              <button
+                onClick={onConnect}
+                className="mt-4 h-9 rounded-full bg-foreground text-background px-4 text-[12.5px] font-medium hover:opacity-90 transition"
+              >
+                Connect agent
+              </button>
+            </Tip>
           </div>
         )}
         {agents.map((a) => (
           <div key={a.id} className="rounded-xl hairline border p-3">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <div className="text-[13.5px] font-medium truncate">{a.name}</div>
-                <div className="text-[11.5px] text-muted-foreground truncate">{a.endpoint}</div>
+                <Tip label={`Created ${new Date(a.created_at).toLocaleString()}`} side="top">
+                  <div className="text-[13.5px] font-medium truncate cursor-default">{a.name}</div>
+                </Tip>
+                <Tip label={a.endpoint} side="top">
+                  <div className="text-[11.5px] text-muted-foreground truncate cursor-default">{a.endpoint}</div>
+                </Tip>
               </div>
-              <button
-                onClick={() => removeMut.mutate(a.id)}
-                className="text-[11px] text-muted-foreground hover:text-foreground"
-                title="Delete"
-              >
-                ✕
-              </button>
+              <Tip label="Remove this agent">
+                <button
+                  onClick={() => removeMut.mutate(a.id)}
+                  className="text-[11px] text-muted-foreground hover:text-foreground"
+                  aria-label="Delete agent"
+                >
+                  ✕
+                </button>
+              </Tip>
             </div>
             <div className="mt-3 flex items-center gap-2">
-              <button
-                disabled={runMut.isPending && runMut.variables === a.id}
-                onClick={() => runMut.mutate(a.id)}
-                className="h-8 rounded-full bg-foreground text-background px-3.5 text-[12px] font-medium hover:opacity-90 transition disabled:opacity-60"
-              >
-                {runMut.isPending && runMut.variables === a.id ? "Running…" : "Run stress test"}
-              </button>
-              <span className="text-[11px] text-muted-foreground">12 attacks</span>
+              <Tip label={attackCount ? `Run all ${attackCount} adversarial probes against this agent` : "Run the full adversarial suite"}>
+                <button
+                  disabled={runMut.isPending && runMut.variables === a.id}
+                  onClick={() => runMut.mutate(a.id)}
+                  className="h-8 rounded-full bg-foreground text-background px-3.5 text-[12px] font-medium hover:opacity-90 transition disabled:opacity-60"
+                >
+                  {runMut.isPending && runMut.variables === a.id ? "Running…" : "Run stress test"}
+                </button>
+              </Tip>
+              <Tip label="Size of the adversarial library">
+                <span className="text-[11px] text-muted-foreground cursor-default">
+                  {attackCount == null ? "…" : `${attackCount} attacks`}
+                </span>
+              </Tip>
             </div>
           </div>
         ))}
