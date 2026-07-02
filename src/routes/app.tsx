@@ -223,9 +223,9 @@ function AgentsPanel({ onConnect }: { onConnect: () => void }) {
 
 function RunsPanel({ onOpenRun }: { onOpenRun: (id: string) => void }) {
   const list = useServerFn(listRuns);
-  const { data: runs = [], isLoading } = useQuery({
+  const { data: runs = [], isLoading } = useQuery<RunRow[]>({
     queryKey: ["runs"],
-    queryFn: () => list(),
+    queryFn: () => list() as Promise<RunRow[]>,
     refetchInterval: 4000,
   });
 
