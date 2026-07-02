@@ -71,7 +71,7 @@ export const getRun = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     const { data: traces, error: te } = await context.supabase
       .from("traces")
-      .select("id,attack_id,verdict,judge_reasoning,response_text,latency_ms,http_status,created_at,attacks(name,category,severity,prompt,expected_behavior)")
+      .select("id,attack_id,verdict,judge_reasoning,response_text,latency_ms,http_status,created_at,attacks(name,category,severity,prompt,expected_behavior,owasp_id,compliance_tags)")
       .eq("run_id", data.id)
       .order("created_at", { ascending: true });
     if (te) throw new Error(te.message);
