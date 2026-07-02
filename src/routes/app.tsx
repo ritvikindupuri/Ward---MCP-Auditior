@@ -1,8 +1,42 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Mark } from "./index";
+import {
+  createAgent,
+  deleteAgent,
+  getRun,
+  listAgents,
+  listRuns,
+  startRun,
+} from "@/lib/adversa.functions";
+
+type AgentRow = { id: string; name: string; endpoint: string; created_at: string };
+type RunRow = {
+  id: string;
+  agent_id: string;
+  status: string;
+  total: number;
+  pass_count: number;
+  fail_count: number;
+  error_count: number;
+  started_at: string;
+  completed_at: string | null;
+};
+type TraceRow = {
+  id: string;
+  attack_id: string;
+  verdict: string;
+  judge_reasoning: string | null;
+  response_text: string | null;
+  latency_ms: number | null;
+  http_status: number | null;
+  created_at: string;
+  attacks: { name: string; category: string; severity: string; prompt: string; expected_behavior: string } | null;
+};
 
 export const Route = createFileRoute("/app")({
   head: () => ({
@@ -18,12 +52,8 @@ function AppShell() {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
-  const [active, setActive] = useState<"Suites" | "Scenarios" | "Attacks" | "Traces" | "Reports">("Suites");
   const [connectOpen, setConnectOpen] = useState(false);
-  const [endpoint, setEndpoint] = useState("");
-  const [agentName, setAgentName] = useState("");
-  const [authHeader, setAuthHeader] = useState("");
-  const [connectStatus, setConnectStatus] = useState<null | "saving" | "saved">(null);
+  const [openRunId, setOpenRunId] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -88,191 +118,419 @@ function AppShell() {
               Welcome, <span className="font-serif italic font-normal text-muted-foreground">{name}.</span>
             </h1>
           </div>
-          <button className="h-10 rounded-full bg-foreground text-background px-5 text-[13.5px] font-medium hover:opacity-90 transition">
-            + New run
+          <button
+            onClick={() => setConnectOpen(true)}
+            className="h-10 rounded-full bg-foreground text-background px-5 text-[13.5px] font-medium hover:opacity-90 transition"
+          >
+            + Connect agent
           </button>
         </div>
 
         <div className="mt-10 grid grid-cols-12 gap-6">
-          <aside className="col-span-12 md:col-span-3">
-            <div className="rounded-2xl hairline border p-3 text-[13px]">
-              <div className="px-2 pt-1 pb-2 text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground/70">
-                Navigation
-              </div>
-              {(["Suites", "Scenarios", "Attacks", "Traces", "Reports"] as const).map((label) => (
-                <button
-                  key={label}
-                  onClick={() => setActive(label)}
-                  className={`w-full text-left flex items-center justify-between rounded-lg px-2.5 py-2 transition ${
-                    active === label ? "bg-surface-2 text-foreground" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <span>{label}</span>
-                  {active === label && <span className="text-accent">·</span>}
-                </button>
-              ))}
-            </div>
-
-            <div className="mt-4 rounded-2xl hairline border p-4">
-              <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground/70">Plan</div>
-              <div className="mt-2 text-[14px] font-medium">Private Beta</div>
-              <div className="mt-1 text-[12.5px] text-muted-foreground">Unlimited runs during beta.</div>
-            </div>
+          <aside className="col-span-12 md:col-span-4">
+            <AgentsPanel onConnect={() => setConnectOpen(true)} />
           </aside>
-
-          <main className="col-span-12 md:col-span-9 space-y-6">
-            <section className="rounded-2xl hairline border overflow-hidden">
-              <div className="flex items-center justify-between p-5 border-b hairline">
-                <div>
-                  <div className="text-[11px] uppercase tracking-widest text-muted-foreground/70">Suite</div>
-                  <div className="mt-1 text-[15px] font-medium">Adversarial · Tool Misuse · L3</div>
-                </div>
-                <div className="flex items-center gap-2 text-[12px]">
-                  <span className="rounded-md glass px-2 py-1">0 scenarios</span>
-                  <span className="rounded-md hairline border px-2.5 py-1 text-muted-foreground">Idle</span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-5">
-                <EmptyStat label="Pass rate" />
-                <EmptyStat label="p95 latency" />
-                <EmptyStat label="Tool errors" />
-              </div>
-
-              <div className="p-5 pt-0">
-                <div className="rounded-xl border hairline border-dashed p-10 text-center">
-                  <div className="text-[14px] font-medium">No runs yet</div>
-                  <p className="mt-1.5 text-[13px] text-muted-foreground max-w-sm mx-auto">
-                    Connect your first agent endpoint to start stress-testing. Every trace, tool call, and failure will land here.
-                  </p>
-                  <button
-                    onClick={() => { setConnectStatus(null); setConnectOpen(true); }}
-                    className="mt-5 h-10 rounded-full bg-foreground text-background px-5 text-[13.5px] font-medium hover:opacity-90 transition"
-                  >
-                    Connect an agent
-                  </button>
-                </div>
-              </div>
-            </section>
-
-            <section className="rounded-2xl hairline border p-5">
-              <div className="flex items-center justify-between">
-                <div className="text-[15px] font-medium">Recent activity</div>
-                <span className="text-[12px] text-muted-foreground">Live</span>
-              </div>
-              <div className="mt-4 text-[13px] text-muted-foreground text-center py-10">
-                Nothing here yet.
-              </div>
-            </section>
+          <main className="col-span-12 md:col-span-8 space-y-6">
+            <RunsPanel onOpenRun={setOpenRunId} />
           </main>
         </div>
       </div>
 
-      {connectOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/70 backdrop-blur-md"
-          onClick={() => setConnectOpen(false)}
-        >
-          <div
-            className="w-full max-w-md rounded-2xl hairline border bg-surface-1 p-6 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground/70">Setup</div>
-                <h2 className="mt-1 text-[20px] font-semibold tracking-tight">Connect an agent</h2>
-              </div>
-              <button
-                onClick={() => setConnectOpen(false)}
-                className="h-8 w-8 rounded-full hairline border text-muted-foreground hover:text-foreground hover:bg-surface-2 transition"
-                aria-label="Close"
-              >
-                ×
-              </button>
-            </div>
-            <p className="mt-2 text-[13px] text-muted-foreground">
-              Point Adversa at a running agent endpoint. We'll send probes and record every response.
-            </p>
-
-            <form
-              className="mt-5 space-y-3"
-              onSubmit={(e) => {
-                e.preventDefault();
-                setConnectStatus("saving");
-                setTimeout(() => {
-                  setConnectStatus("saved");
-                  setTimeout(() => {
-                    setConnectOpen(false);
-                    setEndpoint("");
-                    setAgentName("");
-                    setAuthHeader("");
-                    setConnectStatus(null);
-                  }, 700);
-                }, 500);
-              }}
-            >
-              <div>
-                <label className="text-[12px] text-muted-foreground">Agent name</label>
-                <input
-                  required
-                  value={agentName}
-                  onChange={(e) => setAgentName(e.target.value)}
-                  placeholder="support-copilot"
-                  className="mt-1 w-full h-10 rounded-lg hairline border bg-background px-3 text-[13.5px] outline-none focus:border-foreground/30"
-                />
-              </div>
-              <div>
-                <label className="text-[12px] text-muted-foreground">Endpoint URL</label>
-                <input
-                  required
-                  type="url"
-                  value={endpoint}
-                  onChange={(e) => setEndpoint(e.target.value)}
-                  placeholder="https://api.your-agent.com/chat"
-                  className="mt-1 w-full h-10 rounded-lg hairline border bg-background px-3 text-[13.5px] outline-none focus:border-foreground/30"
-                />
-              </div>
-              <div>
-                <label className="text-[12px] text-muted-foreground">Auth header (optional)</label>
-                <input
-                  value={authHeader}
-                  onChange={(e) => setAuthHeader(e.target.value)}
-                  placeholder="Bearer sk-…"
-                  className="mt-1 w-full h-10 rounded-lg hairline border bg-background px-3 text-[13.5px] outline-none focus:border-foreground/30"
-                />
-              </div>
-
-              <div className="pt-2 flex items-center gap-2">
-                <button
-                  type="submit"
-                  disabled={connectStatus === "saving"}
-                  className="h-10 rounded-full bg-foreground text-background px-5 text-[13.5px] font-medium hover:opacity-90 transition disabled:opacity-60"
-                >
-                  {connectStatus === "saving" ? "Connecting…" : connectStatus === "saved" ? "Connected ✓" : "Connect"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConnectOpen(false)}
-                  className="h-10 rounded-full hairline border px-4 text-[13px] text-muted-foreground hover:text-foreground hover:bg-surface-2 transition"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {connectOpen && <ConnectAgentModal onClose={() => setConnectOpen(false)} />}
+      {openRunId && <RunDetailModal id={openRunId} onClose={() => setOpenRunId(null)} />}
     </div>
   );
 }
 
-function EmptyStat({ label }: { label: string }) {
+// ---------- Agents ----------
+
+function AgentsPanel({ onConnect }: { onConnect: () => void }) {
+  const qc = useQueryClient();
+  const list = useServerFn(listAgents);
+  const del = useServerFn(deleteAgent);
+  const run = useServerFn(startRun);
+  const { data: agents = [], isLoading } = useQuery<AgentRow[]>({
+    queryKey: ["agents"],
+    queryFn: () => list() as Promise<AgentRow[]>,
+  });
+  const removeMut = useMutation({
+    mutationFn: (id: string) => del({ data: { id } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["agents"] }),
+  });
+  const runMut = useMutation({
+    mutationFn: (agent_id: string) => run({ data: { agent_id } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["runs"] }),
+  });
+
+  return (
+    <section className="rounded-2xl hairline border p-5">
+      <div className="flex items-center justify-between">
+        <div className="text-[15px] font-medium">Agents</div>
+        <span className="text-[12px] text-muted-foreground">{agents.length}</span>
+      </div>
+      <div className="mt-4 space-y-2">
+        {isLoading && <div className="text-[13px] text-muted-foreground">Loading…</div>}
+        {!isLoading && agents.length === 0 && (
+          <div className="rounded-xl border hairline border-dashed p-6 text-center">
+            <div className="text-[13.5px] font-medium">No agents yet</div>
+            <p className="mt-1 text-[12.5px] text-muted-foreground">Point Adversa at an endpoint to begin.</p>
+            <button
+              onClick={onConnect}
+              className="mt-4 h-9 rounded-full bg-foreground text-background px-4 text-[12.5px] font-medium hover:opacity-90 transition"
+            >
+              Connect agent
+            </button>
+          </div>
+        )}
+        {agents.map((a) => (
+          <div key={a.id} className="rounded-xl hairline border p-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="text-[13.5px] font-medium truncate">{a.name}</div>
+                <div className="text-[11.5px] text-muted-foreground truncate">{a.endpoint}</div>
+              </div>
+              <button
+                onClick={() => removeMut.mutate(a.id)}
+                className="text-[11px] text-muted-foreground hover:text-foreground"
+                title="Delete"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="mt-3 flex items-center gap-2">
+              <button
+                disabled={runMut.isPending && runMut.variables === a.id}
+                onClick={() => runMut.mutate(a.id)}
+                className="h-8 rounded-full bg-foreground text-background px-3.5 text-[12px] font-medium hover:opacity-90 transition disabled:opacity-60"
+              >
+                {runMut.isPending && runMut.variables === a.id ? "Running…" : "Run stress test"}
+              </button>
+              <span className="text-[11px] text-muted-foreground">12 attacks</span>
+            </div>
+          </div>
+        ))}
+      </div>
+      {runMut.isError && (
+        <div className="mt-3 text-[12px] text-red-500">
+          {(runMut.error as Error)?.message ?? "Run failed"}
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ---------- Runs ----------
+
+function RunsPanel({ onOpenRun }: { onOpenRun: (id: string) => void }) {
+  const list = useServerFn(listRuns);
+  const { data: runs = [], isLoading } = useQuery<RunRow[]>({
+    queryKey: ["runs"],
+    queryFn: () => list() as Promise<RunRow[]>,
+    refetchInterval: 4000,
+  });
+
+  const stats = useMemo(() => {
+    const done = runs.filter((r) => r.status === "complete");
+    const totalPass = done.reduce((a, r) => a + (r.pass_count ?? 0), 0);
+    const totalRun = done.reduce((a, r) => a + (r.total ?? 0), 0);
+    const rate = totalRun ? Math.round((totalPass / totalRun) * 100) : null;
+    return { runs: runs.length, rate };
+  }, [runs]);
+
+  return (
+    <>
+      <section className="rounded-2xl hairline border overflow-hidden">
+        <div className="flex items-center justify-between p-5 border-b hairline">
+          <div>
+            <div className="text-[11px] uppercase tracking-widest text-muted-foreground/70">Overview</div>
+            <div className="mt-1 text-[15px] font-medium">Adversarial suite · v0.1</div>
+          </div>
+          <div className="flex items-center gap-2 text-[12px]">
+            <span className="rounded-md glass px-2 py-1">{stats.runs} runs</span>
+            <span className="rounded-md hairline border px-2.5 py-1 text-muted-foreground">
+              {stats.rate == null ? "—" : `${stats.rate}% pass`}
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-5">
+          <Stat label="Total runs" value={stats.runs.toString()} />
+          <Stat label="Pass rate" value={stats.rate == null ? "—" : `${stats.rate}%`} />
+          <Stat label="Attacks per run" value="12" />
+        </div>
+
+        <div className="p-5 pt-0">
+          {isLoading && <div className="text-[13px] text-muted-foreground">Loading…</div>}
+          {!isLoading && runs.length === 0 && (
+            <div className="rounded-xl border hairline border-dashed p-10 text-center">
+              <div className="text-[14px] font-medium">No runs yet</div>
+              <p className="mt-1.5 text-[13px] text-muted-foreground max-w-sm mx-auto">
+                Connect an agent, then hit "Run stress test" to probe it with the adversarial library.
+              </p>
+            </div>
+          )}
+          {runs.length > 0 && (
+            <div className="rounded-xl hairline border divide-y divide-border/50 overflow-hidden">
+              {runs.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => onOpenRun(r.id)}
+                  className="w-full text-left px-4 py-3 hover:bg-surface-2 transition flex items-center gap-4"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13px] font-medium truncate">
+                      Run · {new Date(r.started_at).toLocaleString()}
+                    </div>
+                    <div className="text-[11.5px] text-muted-foreground">
+                      {r.status === "running" ? "In progress…" : `${r.pass_count}/${r.total} passed · ${r.fail_count} fail · ${r.error_count} error`}
+                    </div>
+                  </div>
+                  <StatusPill status={r.status} />
+                  <span className="text-muted-foreground">›</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+    </>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl glass p-4">
       <div className="text-[11px] uppercase tracking-widest text-muted-foreground/70">{label}</div>
-      <div className="mt-2 flex items-baseline justify-between">
-        <div className="text-[22px] font-semibold tracking-tight tabular-nums text-muted-foreground/50">—</div>
-        <div className="text-[12px] tabular-nums text-muted-foreground/50">·</div>
+      <div className="mt-2 text-[22px] font-semibold tracking-tight tabular-nums">{value}</div>
+    </div>
+  );
+}
+
+function StatusPill({ status }: { status: string }) {
+  const color =
+    status === "complete"
+      ? "text-emerald-400 bg-emerald-400/10"
+      : status === "running"
+      ? "text-accent bg-accent/10"
+      : "text-muted-foreground bg-muted-foreground/10";
+  return (
+    <span className={`text-[10.5px] uppercase tracking-widest rounded-full px-2 py-1 ${color}`}>{status}</span>
+  );
+}
+
+// ---------- Modals ----------
+
+function ConnectAgentModal({ onClose }: { onClose: () => void }) {
+  const qc = useQueryClient();
+  const create = useServerFn(createAgent);
+  const [name, setName] = useState("");
+  const [endpoint, setEndpoint] = useState("");
+  const [auth, setAuth] = useState("");
+  const mut = useMutation({
+    mutationFn: () =>
+      create({
+        data: {
+          name,
+          endpoint,
+          auth_header: auth || null,
+        },
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["agents"] });
+      onClose();
+    },
+  });
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/70 backdrop-blur-md"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-2xl hairline border bg-surface-1 p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground/70">Setup</div>
+            <h2 className="mt-1 text-[20px] font-semibold tracking-tight">Connect an agent</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="h-8 w-8 rounded-full hairline border text-muted-foreground hover:text-foreground hover:bg-surface-2 transition"
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+        <p className="mt-2 text-[12.5px] text-muted-foreground">
+          Adversa POSTs each attack prompt to your endpoint as{" "}
+          <code className="text-foreground/80">{`{ messages: [{ role: 'user', content: '<prompt>' }] }`}</code>{" "}
+          and reads the reply from <code className="text-foreground/80">choices.0.message.content</code>{" "}
+          (OpenAI-compatible).
+        </p>
+
+        <form
+          className="mt-5 space-y-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            mut.mutate();
+          }}
+        >
+          <Field label="Agent name">
+            <input
+              required
+              maxLength={80}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="support-copilot"
+              className="w-full h-10 rounded-lg hairline border bg-background px-3 text-[13.5px] outline-none focus:border-foreground/30"
+            />
+          </Field>
+          <Field label="Endpoint URL">
+            <input
+              required
+              type="url"
+              value={endpoint}
+              onChange={(e) => setEndpoint(e.target.value)}
+              placeholder="https://api.your-agent.com/v1/chat/completions"
+              className="w-full h-10 rounded-lg hairline border bg-background px-3 text-[13.5px] outline-none focus:border-foreground/30"
+            />
+          </Field>
+          <Field label="Auth header (optional)">
+            <input
+              value={auth}
+              onChange={(e) => setAuth(e.target.value)}
+              placeholder="Bearer sk-…"
+              className="w-full h-10 rounded-lg hairline border bg-background px-3 text-[13.5px] outline-none focus:border-foreground/30"
+            />
+          </Field>
+
+          {mut.isError && (
+            <div className="text-[12px] text-red-500">
+              {(mut.error as Error)?.message ?? "Failed to save"}
+            </div>
+          )}
+
+          <div className="pt-2 flex items-center gap-2">
+            <button
+              type="submit"
+              disabled={mut.isPending}
+              className="h-10 rounded-full bg-foreground text-background px-5 text-[13.5px] font-medium hover:opacity-90 transition disabled:opacity-60"
+            >
+              {mut.isPending ? "Saving…" : "Save agent"}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="h-10 rounded-full hairline border px-4 text-[13px] text-muted-foreground hover:text-foreground hover:bg-surface-2 transition"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <div className="text-[12px] text-muted-foreground mb-1">{label}</div>
+      {children}
+    </label>
+  );
+}
+
+function RunDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
+  const get = useServerFn(getRun);
+  type RunDetail = { run: RunRow; traces: TraceRow[] };
+  const { data, isLoading } = useQuery<RunDetail>({
+    queryKey: ["run", id],
+    queryFn: () => get({ data: { id } }) as Promise<RunDetail>,
+    refetchInterval: (q) => (q.state.data?.run?.status === "complete" ? false : 3000),
+  });
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/70 backdrop-blur-md"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-3xl max-h-[85vh] overflow-hidden rounded-2xl hairline border bg-surface-1 shadow-2xl flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-5 border-b hairline flex items-start justify-between">
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground/70">Run</div>
+            <h2 className="mt-1 text-[18px] font-semibold tracking-tight">
+              {data?.run ? new Date(data.run.started_at).toLocaleString() : "Loading…"}
+            </h2>
+            {data?.run && (
+              <div className="mt-1 text-[12.5px] text-muted-foreground">
+                {data.run.pass_count}/{data.run.total} passed · {data.run.fail_count} failed · {data.run.error_count} error
+              </div>
+            )}
+          </div>
+          <button
+            onClick={onClose}
+            className="h-8 w-8 rounded-full hairline border text-muted-foreground hover:text-foreground hover:bg-surface-2 transition"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-auto p-5 space-y-2">
+          {isLoading && <div className="text-[13px] text-muted-foreground">Loading traces…</div>}
+          {data?.traces?.map((t: TraceRow) => {
+            const atk = t.attacks;
+            const color =
+              t.verdict === "pass"
+                ? "text-emerald-400 bg-emerald-400/10"
+                : t.verdict === "fail"
+                ? "text-red-400 bg-red-400/10"
+                : "text-muted-foreground bg-muted-foreground/10";
+            return (
+              <details key={t.id} className="rounded-xl hairline border p-3 group">
+                <summary className="flex items-center gap-3 cursor-pointer list-none">
+                  <span className={`text-[10px] uppercase tracking-widest rounded-full px-2 py-1 ${color}`}>
+                    {t.verdict}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13px] font-medium truncate">{atk?.name}</div>
+                    <div className="text-[11px] text-muted-foreground truncate">
+                      {atk?.category} · {atk?.severity} · {t.latency_ms}ms
+                    </div>
+                  </div>
+                  <span className="text-muted-foreground text-[11px] group-open:hidden">expand</span>
+                </summary>
+                <div className="mt-3 space-y-3 text-[12.5px]">
+                  <div>
+                    <div className="text-[10.5px] uppercase tracking-widest text-muted-foreground/70">Attack prompt</div>
+                    <pre className="mt-1 whitespace-pre-wrap text-foreground/90">{atk?.prompt}</pre>
+                  </div>
+                  <div>
+                    <div className="text-[10.5px] uppercase tracking-widest text-muted-foreground/70">Expected behavior</div>
+                    <p className="mt-1 text-muted-foreground">{atk?.expected_behavior}</p>
+                  </div>
+                  <div>
+                    <div className="text-[10.5px] uppercase tracking-widest text-muted-foreground/70">Agent response</div>
+                    <pre className="mt-1 whitespace-pre-wrap text-foreground/90 max-h-64 overflow-auto rounded-lg bg-background hairline border p-2">
+                      {t.response_text ?? "(no response)"}
+                    </pre>
+                  </div>
+                  {t.judge_reasoning && (
+                    <div>
+                      <div className="text-[10.5px] uppercase tracking-widest text-muted-foreground/70">Judge</div>
+                      <p className="mt-1 text-muted-foreground">{t.judge_reasoning}</p>
+                    </div>
+                  )}
+                </div>
+              </details>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

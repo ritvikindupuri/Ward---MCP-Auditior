@@ -14,7 +14,176 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      agents: {
+        Row: {
+          auth_header: string | null
+          created_at: string
+          endpoint: string
+          id: string
+          name: string
+          request_template: Json
+          response_path: string
+          user_id: string
+        }
+        Insert: {
+          auth_header?: string | null
+          created_at?: string
+          endpoint: string
+          id?: string
+          name: string
+          request_template?: Json
+          response_path?: string
+          user_id: string
+        }
+        Update: {
+          auth_header?: string | null
+          created_at?: string
+          endpoint?: string
+          id?: string
+          name?: string
+          request_template?: Json
+          response_path?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      attacks: {
+        Row: {
+          category: string
+          created_at: string
+          expected_behavior: string
+          id: string
+          name: string
+          prompt: string
+          severity: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          expected_behavior: string
+          id?: string
+          name: string
+          prompt: string
+          severity?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          expected_behavior?: string
+          id?: string
+          name?: string
+          prompt?: string
+          severity?: string
+        }
+        Relationships: []
+      }
+      runs: {
+        Row: {
+          agent_id: string
+          completed_at: string | null
+          error_count: number
+          fail_count: number
+          id: string
+          pass_count: number
+          started_at: string
+          status: string
+          total: number
+          user_id: string
+        }
+        Insert: {
+          agent_id: string
+          completed_at?: string | null
+          error_count?: number
+          fail_count?: number
+          id?: string
+          pass_count?: number
+          started_at?: string
+          status?: string
+          total?: number
+          user_id: string
+        }
+        Update: {
+          agent_id?: string
+          completed_at?: string | null
+          error_count?: number
+          fail_count?: number
+          id?: string
+          pass_count?: number
+          started_at?: string
+          status?: string
+          total?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "runs_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      traces: {
+        Row: {
+          attack_id: string
+          created_at: string
+          http_status: number | null
+          id: string
+          judge_reasoning: string | null
+          latency_ms: number | null
+          request: Json | null
+          response: Json | null
+          response_text: string | null
+          run_id: string
+          user_id: string
+          verdict: string
+        }
+        Insert: {
+          attack_id: string
+          created_at?: string
+          http_status?: number | null
+          id?: string
+          judge_reasoning?: string | null
+          latency_ms?: number | null
+          request?: Json | null
+          response?: Json | null
+          response_text?: string | null
+          run_id: string
+          user_id: string
+          verdict?: string
+        }
+        Update: {
+          attack_id?: string
+          created_at?: string
+          http_status?: number | null
+          id?: string
+          judge_reasoning?: string | null
+          latency_ms?: number | null
+          request?: Json | null
+          response?: Json | null
+          response_text?: string | null
+          run_id?: string
+          user_id?: string
+          verdict?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "traces_attack_id_fkey"
+            columns: ["attack_id"]
+            isOneToOne: false
+            referencedRelation: "attacks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "traces_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
