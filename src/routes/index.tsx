@@ -1,6 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useQuery, queryOptions } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getLandingStats } from "@/lib/adversa.functions";
+
+const landingStatsQuery = queryOptions({
+  queryKey: ["landing-stats"],
+  queryFn: () => getLandingStats(),
+  staleTime: 60_000,
+});
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -9,6 +17,9 @@ export const Route = createFileRoute("/")({
       { name: "description", content: "A stress-testing platform for AI agents." },
     ],
   }),
+  loader: ({ context }) => {
+    context.queryClient.prefetchQuery(landingStatsQuery);
+  },
   component: Landing,
 });
 
