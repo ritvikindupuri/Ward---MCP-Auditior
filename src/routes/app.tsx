@@ -975,19 +975,24 @@ function RunDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
           </div>
           <div className="flex items-center gap-2">
             {data?.run?.status === "complete" && (
-              <button
-                onClick={exportReport}
-                className="h-8 px-3 rounded-full hairline border text-[12px] text-foreground hover:bg-surface-2 transition"
-              >
-                Export JSON
-              </button>
+              <Tip label="Download compliance-ready report (JSON) for auditors">
+                <button
+                  onClick={exportReport}
+                  className="h-8 px-3 rounded-full hairline border text-[12px] text-foreground hover:bg-surface-2 transition"
+                >
+                  Export JSON
+                </button>
+              </Tip>
             )}
-            <button
-              onClick={onClose}
-              className="h-8 w-8 rounded-full hairline border text-muted-foreground hover:text-foreground hover:bg-surface-2 transition"
-            >
-              ×
-            </button>
+            <Tip label="Close report">
+              <button
+                onClick={onClose}
+                className="h-8 w-8 rounded-full hairline border text-muted-foreground hover:text-foreground hover:bg-surface-2 transition"
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </Tip>
           </div>
         </div>
 
