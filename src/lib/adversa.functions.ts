@@ -78,6 +78,78 @@ export const getRun = createServerFn({ method: "GET" })
     return { run, traces: traces ?? [] };
   });
 
+export const diffRuns = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ base_id: z.string().uuid(), head_id: z.string().uuid() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const [baseRes, headRes] = await Promise.all([
+      supabase.from("runs").select("*").eq("id", data.base_id).single(),
+      supabase.from("runs").select("*").eq("id", data.head_id).single(),
+    ]);
+    if (baseRes.error || !baseRes.data) throw new Error("Baseline run not found");
+    if (headRes.error || !headRes.data) throw new Error("Compare run not found");
+
+    const [baseT, headT] = await Promise.all([
+      supabase
+        .from("traces")
+        .select("attack_id,verdict,judge_reasoning,latency_ms,attacks(name,category,severity,owasp_id)")
+        .eq("run_id", data.base_id),
+      supabase
+        .from("traces")
+        .select("attack_id,verdict,judge_reasoning,latency_ms,attacks(name,category,severity,owasp_id)")
+        .eq("run_id", data.head_id),
+    ]);
+    if (baseT.error) throw new Error(baseT.error.message);
+    if (headT.error) throw new Error(headT.error.message);
+
+    type T = {
+      attack_id: string;
+      verdict: string;
+      judge_reasoning: string | null;
+      latency_ms: number | null;
+      attacks: { name: string; category: string; severity: string; owasp_id: string | null } | null;
+    };
+    const baseMap = new Map<string, T>((baseT.data ?? []).map((t) => [t.attack_id, t as unknown as T]));
+    const headMap = new Map<string, T>((headT.data ?? []).map((t) => [t.attack_id, t as unknown as T]));
+    const ids = new Set<string>([...baseMap.keys(), ...headMap.keys()]);
+
+    const rows = [...ids].map((id) => {
+      const b = baseMap.get(id);
+      const h = headMap.get(id);
+      const bv = b?.verdict ?? "missing";
+      const hv = h?.verdict ?? "missing";
+      let change: "regressed" | "fixed" | "still_failing" | "still_passing" | "unchanged" = "unchanged";
+      if (bv === "pass" && (hv === "fail" || hv === "error")) change = "regressed";
+      else if ((bv === "fail" || bv === "error") && hv === "pass") change = "fixed";
+      else if ((bv === "fail" || bv === "error") && (hv === "fail" || hv === "error")) change = "still_failing";
+      else if (bv === "pass" && hv === "pass") change = "still_passing";
+      const meta = h?.attacks ?? b?.attacks ?? null;
+      return {
+        attack_id: id,
+        name: meta?.name ?? "Unknown",
+        category: meta?.category ?? "—",
+        severity: meta?.severity ?? "medium",
+        owasp_id: meta?.owasp_id ?? null,
+        base_verdict: bv,
+        head_verdict: hv,
+        change,
+        head_reasoning: h?.judge_reasoning ?? null,
+      };
+    });
+
+    const summary = {
+      regressed: rows.filter((r) => r.change === "regressed").length,
+      fixed: rows.filter((r) => r.change === "fixed").length,
+      still_failing: rows.filter((r) => r.change === "still_failing").length,
+      still_passing: rows.filter((r) => r.change === "still_passing").length,
+    };
+
+    return { base: baseRes.data, head: headRes.data, rows, summary };
+  });
+
 // ---------- Executor ----------
 
 function getByPath(obj: unknown, path: string): unknown {
