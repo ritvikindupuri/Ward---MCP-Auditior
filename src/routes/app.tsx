@@ -35,8 +35,9 @@ type TraceRow = {
   latency_ms: number | null;
   http_status: number | null;
   created_at: string;
-  attacks: { name: string; category: string; severity: string; prompt: string; expected_behavior: string } | null;
+  attacks: { name: string; category: string; severity: string; prompt: string; expected_behavior: string; owasp_id: string | null; compliance_tags: string[] | null } | null;
 };
+type CatStat = { category: string; total: number; pass: number; fail: number; err: number };
 
 export const Route = createFileRoute("/app")({
   head: () => ({
