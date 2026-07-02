@@ -92,59 +92,80 @@ function AppShell() {
   const initial = name.charAt(0).toUpperCase();
 
   return (
-    <div className="min-h-screen bg-background text-foreground grain">
-      <header className="sticky top-0 z-40 backdrop-blur-xl bg-background/70 border-b hairline">
-        <div className="mx-auto max-w-[1400px] px-6 h-14 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5">
-            <Mark size={22} />
-            <span className="text-[15px] tracking-tight font-medium">Adversa</span>
-            <span className="ml-3 text-[12px] text-muted-foreground">/ Console</span>
-          </Link>
-          <div className="flex items-center gap-3">
-            <span className="text-[13px] text-muted-foreground hidden sm:block">{user.email}</span>
-            <div className="h-7 w-7 rounded-full bg-surface-2 hairline border flex items-center justify-center text-[12px] font-medium">
-              {initial}
+    <TooltipProvider delayDuration={200} skipDelayDuration={100}>
+      <div className="min-h-screen bg-background text-foreground grain">
+        <header className="sticky top-0 z-40 backdrop-blur-xl bg-background/70 border-b hairline">
+          <div className="mx-auto max-w-[1400px] px-6 h-14 flex items-center justify-between">
+            <Tip label="Back to marketing site">
+              <Link to="/" className="flex items-center gap-2.5">
+                <Mark size={22} />
+                <span className="text-[15px] tracking-tight font-medium">Adversa</span>
+                <span className="ml-3 text-[12px] text-muted-foreground">/ Console</span>
+              </Link>
+            </Tip>
+            <div className="flex items-center gap-3">
+              <span className="text-[13px] text-muted-foreground hidden sm:block">{user.email}</span>
+              <Tip label="Signed-in user">
+                <div className="h-7 w-7 rounded-full bg-surface-2 hairline border flex items-center justify-center text-[12px] font-medium cursor-default">
+                  {initial}
+                </div>
+              </Tip>
+              <Tip label="End your session">
+                <button
+                  onClick={signOut}
+                  className="h-8 rounded-full hairline border px-3 text-[12.5px] text-muted-foreground hover:text-foreground hover:bg-surface-2 transition"
+                >
+                  Sign out
+                </button>
+              </Tip>
             </div>
-            <button
-              onClick={signOut}
-              className="h-8 rounded-full hairline border px-3 text-[12.5px] text-muted-foreground hover:text-foreground hover:bg-surface-2 transition"
-            >
-              Sign out
-            </button>
+          </div>
+        </header>
+
+        <div className="mx-auto max-w-[1400px] px-6 py-10">
+          <div className="flex items-end justify-between flex-wrap gap-4">
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground/70">Workspace</div>
+              <h1 className="mt-2 text-[34px] leading-[1.05] tracking-[-0.035em] font-semibold">
+                Welcome, <span className="font-serif italic font-normal text-muted-foreground">{name}.</span>
+              </h1>
+            </div>
+            <Tip label="Register an AI agent endpoint to test">
+              <button
+                onClick={() => setConnectOpen(true)}
+                className="h-10 rounded-full bg-foreground text-background px-5 text-[13.5px] font-medium hover:opacity-90 transition"
+              >
+                + Connect agent
+              </button>
+            </Tip>
+          </div>
+
+          <div className="mt-10 grid grid-cols-12 gap-6">
+            <aside className="col-span-12 md:col-span-4">
+              <AgentsPanel onConnect={() => setConnectOpen(true)} />
+            </aside>
+            <main className="col-span-12 md:col-span-8 space-y-6">
+              <RunsPanel onOpenRun={setOpenRunId} onCompare={(base, head) => setDiffPair({ base, head })} />
+            </main>
           </div>
         </div>
-      </header>
 
-      <div className="mx-auto max-w-[1400px] px-6 py-10">
-        <div className="flex items-end justify-between flex-wrap gap-4">
-          <div>
-            <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground/70">Workspace</div>
-            <h1 className="mt-2 text-[34px] leading-[1.05] tracking-[-0.035em] font-semibold">
-              Welcome, <span className="font-serif italic font-normal text-muted-foreground">{name}.</span>
-            </h1>
-          </div>
-          <button
-            onClick={() => setConnectOpen(true)}
-            className="h-10 rounded-full bg-foreground text-background px-5 text-[13.5px] font-medium hover:opacity-90 transition"
-          >
-            + Connect agent
-          </button>
-        </div>
-
-        <div className="mt-10 grid grid-cols-12 gap-6">
-          <aside className="col-span-12 md:col-span-4">
-            <AgentsPanel onConnect={() => setConnectOpen(true)} />
-          </aside>
-          <main className="col-span-12 md:col-span-8 space-y-6">
-            <RunsPanel onOpenRun={setOpenRunId} onCompare={(base, head) => setDiffPair({ base, head })} />
-          </main>
-        </div>
+        {connectOpen && <ConnectAgentModal onClose={() => setConnectOpen(false)} />}
+        {openRunId && <RunDetailModal id={openRunId} onClose={() => setOpenRunId(null)} />}
+        {diffPair && <RunDiffModal base={diffPair.base} head={diffPair.head} onClose={() => setDiffPair(null)} />}
       </div>
+    </TooltipProvider>
+  );
+}
 
-      {connectOpen && <ConnectAgentModal onClose={() => setConnectOpen(false)} />}
-      {openRunId && <RunDetailModal id={openRunId} onClose={() => setOpenRunId(null)} />}
-      {diffPair && <RunDiffModal base={diffPair.base} head={diffPair.head} onClose={() => setDiffPair(null)} />}
-    </div>
+function Tip({ label, children, side = "bottom" }: { label: string; children: React.ReactNode; side?: "top" | "bottom" | "left" | "right" }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side={side} className="bg-surface-2 text-foreground hairline border text-[11.5px]">
+        {label}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
