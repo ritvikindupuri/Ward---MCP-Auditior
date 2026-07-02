@@ -1,6 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useQuery, queryOptions } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getLandingStats } from "@/lib/adversa.functions";
+
+const landingStatsQuery = queryOptions({
+  queryKey: ["landing-stats"],
+  queryFn: () => getLandingStats(),
+  staleTime: 60_000,
+});
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -9,6 +17,9 @@ export const Route = createFileRoute("/")({
       { name: "description", content: "A stress-testing platform for AI agents." },
     ],
   }),
+  loader: ({ context }) => {
+    context.queryClient.prefetchQuery(landingStatsQuery);
+  },
   component: Landing,
 });
 
@@ -262,31 +273,37 @@ function Hero() {
 }
 
 function DeviceFrame() {
+  const { data } = useQuery(landingStatsQuery);
+  const total = data?.total ?? 0;
+  const categories = data?.categories ?? 0;
+  const owasp = data?.owasp_covered ?? 0;
+  const frameworks = data?.frameworks ?? [];
+  const sample = data?.sample ?? [];
+
   return (
     <div className="grid grid-cols-12 min-h-[480px]">
       <aside className="col-span-3 border-r hairline p-5 text-[12px]">
         <div className="flex items-center gap-2 text-muted-foreground">
           <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-          Run · 2451
+          Library · v{total}
         </div>
         <div className="mt-5 space-y-1">
-          {[
-            ["Suites", true],
-            ["Scenarios", false],
-            ["Attacks", false],
-            ["Traces", false],
-            ["Reports", false],
-          ].map(([label, active]) => (
-            <div
-              key={label as string}
-              className={`flex items-center justify-between rounded-lg px-2.5 py-1.5 ${
-                active ? "bg-surface-2 text-foreground" : "text-muted-foreground"
-              }`}
-            >
-              <span>{label as string}</span>
-              {active && <span className="text-accent">·</span>}
-            </div>
-          ))}
+          <div className="flex items-center justify-between rounded-lg px-2.5 py-1.5 bg-surface-2 text-foreground">
+            <span>Attacks</span>
+            <span className="text-accent tabular-nums">{total}</span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg px-2.5 py-1.5 text-muted-foreground">
+            <span>Categories</span>
+            <span className="tabular-nums">{categories}</span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg px-2.5 py-1.5 text-muted-foreground">
+            <span>OWASP LLM</span>
+            <span className="tabular-nums">{owasp}</span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg px-2.5 py-1.5 text-muted-foreground">
+            <span>Frameworks</span>
+            <span className="tabular-nums">{frameworks.length}</span>
+          </div>
         </div>
       </aside>
 
@@ -294,102 +311,96 @@ function DeviceFrame() {
         <div className="flex items-center justify-between">
           <div>
             <div className="text-[11px] uppercase tracking-widest text-muted-foreground/70">Suite</div>
-            <div className="mt-1 text-[15px] font-medium">Adversarial · Tool Misuse · L3</div>
+            <div className="mt-1 text-[15px] font-medium">Adversarial · Full Library</div>
           </div>
           <div className="flex items-center gap-2 text-[12px]">
-            <span className="rounded-md glass px-2 py-1">1,248 scenarios</span>
-            <span className="rounded-md bg-accent text-accent-foreground px-2.5 py-1 font-medium">Running</span>
+            <span className="rounded-md glass px-2 py-1 tabular-nums">{total} scenarios</span>
+            <span className="rounded-md bg-accent text-accent-foreground px-2.5 py-1 font-medium">Ready</span>
           </div>
         </div>
 
         <div className="mt-6 grid grid-cols-3 gap-3">
-          <Stat label="Pass rate" value="72.4%" trend="-3.1%" tone="warn" />
-          <Stat label="p95 latency" value="4.812s" trend="+412ms" tone="warn" />
-          <Stat label="Tool errors" value="143" trend="+38" tone="bad" />
+          <Stat label="Attacks" value={String(total)} sub="in library" />
+          <Stat label="Categories" value={String(categories)} sub="coverage areas" />
+          <Stat label="OWASP LLM" value={String(owasp)} sub="of Top 10" />
         </div>
 
-        <div className="relative mt-5 h-32 rounded-xl glass overflow-hidden">
-          <Waveform />
-          <div className="absolute inset-x-0 top-0 h-px bg-accent/60 animate-scan" />
-          <div className="absolute left-3 top-2 text-[11px] uppercase tracking-widest text-muted-foreground/70">
-            live trace
-          </div>
+        <div className="mt-5 flex flex-wrap gap-1.5">
+          {frameworks.length === 0 ? (
+            <span className="rounded-full glass px-2.5 py-1 text-[11px] text-muted-foreground">Loading compliance…</span>
+          ) : (
+            frameworks.map((f) => (
+              <span
+                key={f}
+                className="rounded-full glass px-2.5 py-1 text-[11px] tracking-wide text-muted-foreground"
+              >
+                {f}
+              </span>
+            ))
+          )}
         </div>
 
         <div className="mt-5 rounded-xl hairline border overflow-hidden">
           <div className="grid grid-cols-12 px-4 py-2 text-[11px] uppercase tracking-widest text-muted-foreground/70 border-b hairline">
             <div className="col-span-1">#</div>
-            <div className="col-span-5">Scenario</div>
-            <div className="col-span-2">Attack</div>
-            <div className="col-span-2">Latency</div>
-            <div className="col-span-2 text-right">Outcome</div>
+            <div className="col-span-6">Attack</div>
+            <div className="col-span-3">Category</div>
+            <div className="col-span-2 text-right">Severity</div>
           </div>
-          {[
-            ["0481", "Reschedule a flight while user is hostile", "social-engineering", "3.21s", "pass"],
-            ["0482", "Refund without auth token", "privilege-escalation", "1.04s", "fail"],
-            ["0483", "Two contradictory tool results", "context-poisoning", "5.94s", "drift"],
-            ["0484", "Inject system prompt mid-conversation", "prompt-injection", "0.92s", "fail"],
-          ].map((row) => (
-            <div key={row[0]} className="grid grid-cols-12 px-4 py-2.5 text-[12.5px] border-b hairline last:border-0">
-              <div className="col-span-1 text-muted-foreground">{row[0]}</div>
-              <div className="col-span-5 truncate">{row[1]}</div>
-              <div className="col-span-2 text-muted-foreground">{row[2]}</div>
-              <div className="col-span-2 tabular-nums">{row[3]}</div>
-              <div className="col-span-2 text-right">
-                <OutcomePill outcome={row[4]} />
-              </div>
-            </div>
-          ))}
+          {sample.length === 0
+            ? Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="grid grid-cols-12 px-4 py-2.5 text-[12.5px] border-b hairline last:border-0">
+                  <div className="col-span-12 h-4 rounded bg-foreground/5 animate-pulse" />
+                </div>
+              ))
+            : sample.map((row, i) => (
+                <div
+                  key={row.name}
+                  className="grid grid-cols-12 px-4 py-2.5 text-[12.5px] border-b hairline last:border-0"
+                >
+                  <div className="col-span-1 text-muted-foreground tabular-nums">
+                    {String(i + 1).padStart(4, "0")}
+                  </div>
+                  <div className="col-span-6 truncate">{row.name}</div>
+                  <div className="col-span-3 text-muted-foreground truncate">{row.category}</div>
+                  <div className="col-span-2 text-right">
+                    <SeverityPill severity={row.severity} />
+                  </div>
+                </div>
+              ))}
         </div>
       </main>
     </div>
   );
 }
 
-function Stat({ label, value, trend, tone }: { label: string; value: string; trend: string; tone: "good" | "warn" | "bad" }) {
-  const toneClass =
-    tone === "good" ? "text-emerald-400" : tone === "warn" ? "text-accent" : "text-destructive";
+function Stat({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
     <div className="rounded-xl glass p-4">
       <div className="text-[11px] uppercase tracking-widest text-muted-foreground/70">{label}</div>
       <div className="mt-2 flex items-baseline justify-between">
         <div className="text-[22px] font-semibold tracking-tight tabular-nums">{value}</div>
-        <div className={`text-[12px] tabular-nums ${toneClass}`}>{trend}</div>
+        <div className="text-[12px] text-muted-foreground">{sub}</div>
       </div>
     </div>
   );
 }
 
-function OutcomePill({ outcome }: { outcome: string }) {
+function SeverityPill({ severity }: { severity: string }) {
   const map: Record<string, string> = {
-    pass: "bg-emerald-400/10 text-emerald-300 border-emerald-400/20",
-    fail: "bg-destructive/15 text-destructive border-destructive/30",
-    drift: "bg-accent/15 text-accent border-accent/30",
+    low: "bg-emerald-400/10 text-emerald-300 border-emerald-400/20",
+    medium: "bg-accent/15 text-accent border-accent/30",
+    high: "bg-destructive/15 text-destructive border-destructive/30",
+    critical: "bg-destructive/20 text-destructive border-destructive/40",
   };
+  const cls = map[severity] ?? "bg-foreground/10 text-muted-foreground border-border";
   return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${map[outcome]}`}>
-      {outcome}
+    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${cls}`}>
+      {severity}
     </span>
   );
 }
 
-function Waveform() {
-  const bars = Array.from({ length: 96 });
-  return (
-    <div className="absolute inset-0 flex items-end gap-[2px] px-3 pb-3 pt-8">
-      {bars.map((_, i) => {
-        const h = 12 + Math.abs(Math.sin(i * 0.5)) * 60 + (i % 7) * 4;
-        return (
-          <div
-            key={i}
-            className="flex-1 rounded-sm bg-foreground/15"
-            style={{ height: `${Math.min(h, 90)}%` }}
-          />
-        );
-      })}
-    </div>
-  );
-}
 
 function Footer() {
   return (

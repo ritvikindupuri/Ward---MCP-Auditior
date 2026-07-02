@@ -84,6 +84,40 @@ export const getAttackStats = createServerFn({ method: "GET" })
     };
   });
 
+export const getLandingStats = createServerFn({ method: "GET" }).handler(async () => {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data, error } = await supabaseAdmin
+    .from("attacks")
+    .select("name,category,severity,owasp_id,compliance_tags")
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  const rows = data ?? [];
+  const categories = new Set(rows.map((r) => r.category));
+  const owasp = new Set(rows.map((r) => r.owasp_id).filter(Boolean) as string[]);
+  const frameworks = new Set<string>();
+  for (const r of rows) {
+    for (const tag of (r.compliance_tags ?? []) as string[]) {
+      const f = tag.split(":")[0]?.trim();
+      if (f) frameworks.add(f);
+    }
+  }
+  // deterministic small sample for the hero preview
+  const step = Math.max(1, Math.floor(rows.length / 6));
+  const sample = Array.from({ length: Math.min(4, rows.length) }, (_, i) => rows[i * step] ?? rows[i]).map((r) => ({
+    name: r.name,
+    category: r.category,
+    severity: r.severity,
+    owasp_id: r.owasp_id,
+  }));
+  return {
+    total: rows.length,
+    categories: categories.size,
+    owasp_covered: owasp.size,
+    frameworks: [...frameworks].sort(),
+    sample,
+  };
+});
+
 export const getRun = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
