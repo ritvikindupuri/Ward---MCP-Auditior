@@ -149,9 +149,9 @@ function AgentsPanel({ onConnect }: { onConnect: () => void }) {
   const list = useServerFn(listAgents);
   const del = useServerFn(deleteAgent);
   const run = useServerFn(startRun);
-  const { data: agents = [], isLoading } = useQuery({
+  const { data: agents = [], isLoading } = useQuery<AgentRow[]>({
     queryKey: ["agents"],
-    queryFn: () => list(),
+    queryFn: () => list() as Promise<AgentRow[]>,
   });
   const removeMut = useMutation({
     mutationFn: (id: string) => del({ data: { id } }),
