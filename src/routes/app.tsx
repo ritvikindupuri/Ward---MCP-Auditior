@@ -56,6 +56,7 @@ function AppShell() {
   const [ready, setReady] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
   const [openRunId, setOpenRunId] = useState<string | null>(null);
+  const [diffPair, setDiffPair] = useState<{ base: string; head: string } | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
