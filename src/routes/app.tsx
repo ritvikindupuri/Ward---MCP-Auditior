@@ -484,13 +484,14 @@ function RunsPanel({
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl glass p-4">
+function Stat({ label, value, tip }: { label: string; value: string; tip?: string }) {
+  const inner = (
+    <div className="rounded-xl glass p-4 cursor-default">
       <div className="text-[11px] uppercase tracking-widest text-muted-foreground/70">{label}</div>
       <div className="mt-2 text-[22px] font-semibold tracking-tight tabular-nums">{value}</div>
     </div>
   );
+  return tip ? <Tip label={tip}>{inner}</Tip> : inner;
 }
 
 function StatusPill({ status }: { status: string }) {
