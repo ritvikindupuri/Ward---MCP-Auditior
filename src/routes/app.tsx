@@ -907,6 +907,7 @@ function RunDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
   });
 
   const traces = data?.traces ?? [];
+  const [filter, setFilter] = useState<"all" | "fail" | "error" | "pass">("all");
   const catStats: CatStat[] = (() => {
     const m = new Map<string, CatStat>();
     for (const t of traces) {
@@ -922,6 +923,26 @@ function RunDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
   })();
 
   const failures = traces.filter((t) => t.verdict === "fail");
+  const errors = traces.filter((t) => t.verdict === "error");
+  const passes = traces.filter((t) => t.verdict === "pass");
+  const visible =
+    filter === "all" ? traces : filter === "fail" ? failures : filter === "error" ? errors : passes;
+
+  // If most traces errored, the agent endpoint itself failed — surface why.
+  const errorBanner = (() => {
+    if (!traces.length || errors.length / traces.length < 0.5) return null;
+    const statusCounts = new Map<string, number>();
+    const reasonCounts = new Map<string, number>();
+    for (const t of errors) {
+      const s = t.http_status ? String(t.http_status) : "network/timeout";
+      statusCounts.set(s, (statusCounts.get(s) ?? 0) + 1);
+      const r = (t.judge_reasoning ?? "unknown").slice(0, 200);
+      reasonCounts.set(r, (reasonCounts.get(r) ?? 0) + 1);
+    }
+    const topStatus = [...statusCounts.entries()].sort((a, b) => b[1] - a[1]);
+    const topReason = [...reasonCounts.entries()].sort((a, b) => b[1] - a[1])[0];
+    return { topStatus, topReason };
+  })();
 
   const exportReport = () => {
     if (!data) return;
