@@ -128,18 +128,26 @@ function Main() {
       {!connected && <ConnectPanel onOpen={() => setShowConnect(true)} />}
 
       {connected && (
-        <div className="rounded-2xl hairline border overflow-hidden">
-          {(scans.data ?? []).length === 0 ? (
-            <div className="p-12 text-center text-[13px] text-muted-foreground">
-              No scans yet. Click <span className="text-foreground">New scan</span> to pick a repository.
-            </div>
-          ) : (
-            <ul className="divide-y hairline">
-              {scans.data!.map((s) => <ScanRow key={s.id} scan={s} onOpen={() => setOpenScanId(s.id)} />)}
-            </ul>
-          )}
-        </div>
+        <>
+          <LiveScansPanel
+            scans={(scans.data ?? []).filter((s) => s.status === "running" || s.status === "queued")}
+            onOpen={setOpenScanId}
+          />
+
+          <div className="rounded-2xl hairline border overflow-hidden">
+            {(scans.data ?? []).length === 0 ? (
+              <div className="p-12 text-center text-[13px] text-muted-foreground">
+                No scans yet. Click <span className="text-foreground">New scan</span> to pick a repository.
+              </div>
+            ) : (
+              <ul className="divide-y hairline">
+                {scans.data!.map((s) => <ScanRow key={s.id} scan={s} onOpen={() => setOpenScanId(s.id)} />)}
+              </ul>
+            )}
+          </div>
+        </>
       )}
+
 
       {showConnect && <ConnectModal onClose={() => setShowConnect(false)} onSaved={() => { setShowConnect(false); qc.invalidateQueries({ queryKey: ["gh-status"] }); }} />}
       {showPicker && <RepoPicker onClose={() => setShowPicker(false)} onScanned={() => { setShowPicker(false); qc.invalidateQueries({ queryKey: ["scans"] }); }} />}
