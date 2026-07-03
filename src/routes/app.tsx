@@ -346,7 +346,7 @@ function LiveScanRow({ scan, onOpen }: { scan: ScanListItem; onOpen: () => void 
           style={{ width: `${pct}%` }}
         />
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
         {agents.map((a) => {
           const st = progress[a.k] ?? "queued";
           const dotC = st === "done" ? "bg-primary" : st === "running" ? "bg-yellow-400 animate-pulse" : "bg-muted-foreground/40";
