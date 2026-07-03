@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { motion } from "motion/react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -16,46 +17,73 @@ export const Route = createFileRoute("/")({
   component: Landing,
 });
 
-/** Next-Level Glowing Logo Mark */
+/** Next-Level Unique and Interesting Geometric Shield Logo */
 export function Mark({ size = 26, glow = true }: { size?: number; glow?: boolean }) {
   return (
     <div className="relative flex items-center justify-center group">
       {glow && (
-        <div className="absolute inset-0 bg-emerald-400/20 blur-[10px] rounded-full scale-110 opacity-75 group-hover:bg-emerald-400/35 transition-all duration-500" />
+        <div className="absolute inset-0 bg-emerald-500/20 blur-[12px] rounded-full scale-125 opacity-70 group-hover:scale-135 group-hover:opacity-90 transition-all duration-700" />
       )}
       <svg
         width={size}
         height={size}
-        viewBox="0 0 32 32"
+        viewBox="0 0 40 40"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className="relative transform transition-transform duration-300 group-hover:scale-105"
+        className="relative transform transition-all duration-500 group-hover:scale-110 group-hover:rotate-[15deg]"
       >
         <defs>
-          <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          {/* Iridescent silver-primary and jade-emerald gradients to match LineJump theme */}
+          <linearGradient id="wardLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="oklch(0.929 0.013 255.508)" />
+            <stop offset="50%" stopColor="oklch(0.551 0.027 264.364)" />
+            <stop offset="100%" stopColor="oklch(0.208 0.042 265.755)" />
+          </linearGradient>
+          <linearGradient id="glowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor="#34d399" />
             <stop offset="100%" stopColor="#10b981" />
           </linearGradient>
-          <linearGradient id="glowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#a78bfa" />
-            <stop offset="100%" stopColor="#818cf8" />
-          </linearGradient>
         </defs>
+        
+        {/* Layered geometric outer shield */}
         <path
-          d="M16 3 L28 8 V16 C28 23.5 22.8 28.5 16 30.5 C9.2 28.5 4 23.5 4 16 V8 Z"
-          stroke="url(#logoGrad)"
-          strokeWidth="2.5"
-          strokeLinejoin="round"
-          fill="none"
-        />
-        <path
-          d="M9 16 H23"
-          stroke="url(#glowGrad)"
+          d="M 20 5 C 20 5, 33 7.5, 33 18 C 33 28.5, 20 35, 20 35 C 20 35, 7 28.5, 7 18 C 7 7.5, 20 5, 20 5 Z"
+          stroke="url(#wardLogoGrad)"
           strokeWidth="2.5"
           strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+
+        {/* Concentric scan orbit lines */}
+        <path
+          d="M 12.5 18 A 7.5 7.5 0 0 1 27.5 18"
+          stroke="url(#glowGrad)"
+          strokeWidth="1.5"
+          strokeDasharray="2 3"
+          className="opacity-75 animate-[spin_10s_linear_infinite]"
+        />
+
+        {/* Intersecting vertical secure beam */}
+        <line
+          x1="20"
+          y1="8"
+          x2="20"
+          y2="32"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeDasharray="2 4"
+          className="opacity-40"
+        />
+
+        {/* Overlapping scan target core */}
+        <circle
+          cx="20"
+          cy="18"
+          r="4.5"
+          fill="url(#glowGrad)"
           className="animate-pulse"
         />
-        <circle cx="16" cy="16" r="3.2" fill="#34d399" />
       </svg>
     </div>
   );
@@ -99,7 +127,6 @@ function Nav({ signedIn }: { signedIn: boolean }) {
         <nav className="hidden md:flex items-center gap-8 text-[13.5px] font-medium text-muted-foreground">
           <a href="#pipeline" className="hover:text-white transition-colors">Pipeline</a>
           <a href="#agents" className="hover:text-white transition-colors">Agents</a>
-          <a href="#compliance" className="hover:text-white transition-colors">Compliance</a>
         </nav>
         <div className="flex items-center gap-4">
           {signedIn ? (
@@ -122,43 +149,75 @@ function Nav({ signedIn }: { signedIn: boolean }) {
   );
 }
 
+const ease = [0.16, 1, 0.3, 1] as const;
+
+const containerVariants = {
+  initial: {},
+  animate: {
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+};
+
+const fadeUp = {
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.8, ease },
+};
+
 function HeroSection() {
   return (
     <section className="relative pt-24 pb-20 max-w-7xl mx-auto px-6">
       {/* Mesh auroras for visual depth */}
-      <div className="pointer-events-none absolute -top-40 left-1/4 w-[500px] h-[500px] bg-emerald-500/10 rounded-full blur-[120px] -z-10" />
-      <div className="pointer-events-none absolute top-20 right-1/4 w-[600px] h-[600px] bg-indigo-500/10 rounded-full blur-[140px] -z-10" />
+      <div className="pointer-events-none absolute -top-40 left-1/4 w-[500px] h-[500px] bg-primary/10 rounded-full blur-[120px] -z-10 animate-drift" />
+      <div className="pointer-events-none absolute top-20 right-1/4 w-[600px] h-[600px] bg-accent/10 rounded-full blur-[140px] -z-10 animate-drift" />
 
       <div className="grid lg:grid-cols-[1.1fr_1fr] gap-12 lg:gap-16 items-center">
-        {/* Left Column: Heading and description */}
-        <div className="text-left space-y-6">
-          <div className="inline-flex items-center gap-2.5 rounded-full px-3.5 py-1.5 bg-emerald-500/5 border border-emerald-500/20 text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-400">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            Local AI Compliance Auditor
-          </div>
-          
-          <h1 className="text-[52px] sm:text-[68px] lg:text-[76px] leading-[0.95] tracking-[-0.045em] font-extrabold text-white text-balance">
+        {/* Left Column: Animated heading and description */}
+        <motion.div
+          variants={containerVariants}
+          initial="initial"
+          animate="animate"
+          className="text-left space-y-6"
+        >
+          <motion.h1
+            variants={fadeUp}
+            className="text-[52px] sm:text-[68px] lg:text-[76px] leading-[0.95] tracking-[-0.045em] font-extrabold text-white text-balance"
+          >
             Your MCP stack,
             <br />
             <span className="font-serif italic font-normal text-muted-foreground">fully audited.</span>
-          </h1>
+          </motion.h1>
 
-          <p className="max-w-[480px] text-[16px] leading-[1.6] text-muted-foreground text-pretty">
+          <motion.p
+            variants={fadeUp}
+            className="max-w-[480px] text-[16px] leading-[1.6] text-muted-foreground text-pretty"
+          >
             Ward is the privacy-first supply chain guardian built to detect prompt injections, tool poisoning, and AI dependency vulnerability CVEs locally using Ollama.
-          </p>
+          </motion.p>
 
-          <div className="pt-2 flex flex-wrap items-center gap-4">
+          <motion.div
+            variants={fadeUp}
+            className="pt-2 flex flex-wrap items-center gap-4"
+          >
             <Link to="/sign-up" className="h-11 px-6 rounded-full bg-white text-black font-semibold text-[14px] hover:opacity-95 shadow-[0_8px_30px_rgb(255,255,255,0.06)] transition-all flex items-center">
               Scan Repositories
             </Link>
             <a href="#pipeline" className="h-11 px-6 rounded-full bg-surface-2 border border-white/5 text-[14px] font-medium hover:bg-surface hover:border-white/10 transition-all flex items-center">
               View Demo Pipeline
             </a>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
 
         {/* Right Column: High fidelity interactive sandbox */}
-        <InteractiveSandbox />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 1, ease }}
+        >
+          <InteractiveSandbox />
+        </motion.div>
       </div>
     </section>
   );

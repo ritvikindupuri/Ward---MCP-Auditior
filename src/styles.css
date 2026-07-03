@@ -42,45 +42,44 @@
 :root {
   --radius: 0.9rem;
 
-  /* Obsidian + jade — deep prussian canvas, iridescent accents.
-     Reads as enterprise-grade, not generic dark-mode. */
-  --background: oklch(0.155 0.022 258);
-  --foreground: oklch(0.975 0.008 240);
-  --surface: oklch(0.198 0.024 258);
-  --surface-2: oklch(0.235 0.028 258);
+  /* LineJump UI theme colors */
+  --background: oklch(0.129 0.042 264.695);
+  --foreground: oklch(0.984 0.003 247.858);
+  --surface: oklch(0.208 0.042 265.755);
+  --surface-2: oklch(0.279 0.041 260.031);
 
-  --card: oklch(0.198 0.024 258);
-  --card-foreground: oklch(0.975 0.008 240);
-  --popover: oklch(0.21 0.025 258);
-  --popover-foreground: oklch(0.975 0.008 240);
+  --card: oklch(0.208 0.042 265.755);
+  --card-foreground: oklch(0.984 0.003 247.858);
+  --popover: oklch(0.208 0.042 265.755);
+  --popover-foreground: oklch(0.984 0.003 247.858);
 
-  --primary: oklch(0.82 0.16 168);       /* jade signal */
-  --primary-foreground: oklch(0.15 0.02 258);
+  --primary: oklch(0.929 0.013 255.508);
+  --primary-foreground: oklch(0.208 0.042 265.755);
 
-  --secondary: oklch(0.26 0.03 258);
-  --secondary-foreground: oklch(0.975 0.008 240);
+  --secondary: oklch(0.279 0.041 260.031);
+  --secondary-foreground: oklch(0.984 0.003 247.858);
 
-  --muted: oklch(0.24 0.026 258);
-  --muted-foreground: oklch(0.72 0.028 250);
+  --muted: oklch(0.279 0.041 260.031);
+  --muted-foreground: oklch(0.704 0.04 256.788);
 
-  --accent: oklch(0.72 0.19 305);        /* iris violet */
-  --accent-foreground: oklch(0.975 0.008 240);
+  --accent: oklch(0.279 0.041 260.031);
+  --accent-foreground: oklch(0.984 0.003 247.858);
 
-  --destructive: oklch(0.66 0.24 22);
-  --destructive-foreground: oklch(0.98 0.005 240);
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.984 0.003 247.858);
 
-  --border: oklch(1 0 0 / 9%);
+  --border: oklch(1 0 0 / 10%);
   --hairline: oklch(1 0 0 / 7%);
-  --input: oklch(1 0 0 / 10%);
-  --ring: oklch(0.82 0.16 168 / 55%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.551 0.027 264.364 / 55%);
 
-  --gradient-radial: radial-gradient(80% 60% at 50% 0%, oklch(0.55 0.16 168 / 0.35), transparent 60%);
+  --gradient-radial: radial-gradient(80% 60% at 50% 0%, oklch(0.551 0.027 264.364 / 0.35), transparent 60%);
   --gradient-aurora: conic-gradient(from 210deg at 50% 50%,
-    oklch(0.72 0.19 305 / 0.38),
-    oklch(0.82 0.16 168 / 0.32),
-    oklch(0.7 0.14 220 / 0.28),
-    oklch(0.75 0.17 45 / 0.28),
-    oklch(0.72 0.19 305 / 0.38));
+    oklch(0.279 0.041 260.031 / 0.38),
+    oklch(0.551 0.027 264.364 / 0.32),
+    oklch(0.704 0.04 256.788 / 0.28),
+    oklch(0.769 0.188 70.08 / 0.28),
+    oklch(0.279 0.041 260.031 / 0.38));
 
   --shadow-glass: 0 1px 0 0 oklch(1 0 0 / 0.06) inset, 0 30px 80px -30px oklch(0 0 0 / 0.7);
 }
