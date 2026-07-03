@@ -162,7 +162,7 @@ function ConnectPanel({ onOpen }: { onOpen: () => void }) {
       <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground mb-3">Step 1</div>
       <h2 className="text-[22px] font-semibold tracking-tight mb-2">Connect your GitHub account</h2>
       <p className="text-[13.5px] text-muted-foreground max-w-lg leading-[1.6]">
-        Sable uses a GitHub fine-grained personal access token with read-only repository access.
+        Ward uses a GitHub fine-grained personal access token with read-only repository access.
         Nothing is written back to your account.
       </p>
       <button onClick={onOpen} className="mt-6 h-10 px-5 rounded-full bg-foreground text-background text-[13px] font-medium hover:opacity-90 transition">
