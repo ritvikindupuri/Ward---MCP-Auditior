@@ -583,6 +583,201 @@ function FindingRow({ f }: { f: Awaited<ReturnType<typeof getScan>>["findings"][
   );
 }
 
+// ---------- Policy View ----------
+
+function PolicyView() {
+  const qc = useQueryClient();
+  const policy = useQuery({ queryKey: ["policy"], queryFn: () => getPolicy() });
+  const [allowed, setAllowed] = useState("");
+  const [denied, setDenied] = useState("");
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (policy.data) {
+      setAllowed(((policy.data.allowed_servers as string[]) ?? []).join("\n"));
+      setDenied(((policy.data.denied_servers as string[]) ?? []).join("\n"));
+    }
+  }, [policy.data]);
+
+  const save = useMutation({
+    mutationFn: (patch: Parameters<typeof updatePolicy>[0]["data"]) => updatePolicy({ data: patch }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["policy"] }); setSaved(true); setTimeout(() => setSaved(false), 1600); },
+  });
+
+  const p = policy.data;
+  const toggle = (key: string, val: boolean) => save.mutate({ [key]: val });
+
+  return (
+    <main className="p-8 max-w-4xl w-full mx-auto">
+      <div className="mb-8">
+        <h1 className="text-[26px] tracking-tight font-semibold">MCP policy</h1>
+        <p className="text-[13px] text-muted-foreground mt-1">Declarative rules Ward enforces on every scan. Findings that trigger a policy rule are flagged as policy violations in reports.</p>
+      </div>
+
+      {policy.isLoading ? (
+        <p className="text-[13px] text-muted-foreground">Loading policy…</p>
+      ) : !p ? null : (
+        <div className="space-y-6">
+          <div className="rounded-2xl hairline border p-6">
+            <h2 className="text-[15px] font-semibold mb-4">Rule toggles</h2>
+            <div className="space-y-3">
+              <PolicyToggle label="Block stdio MCP servers launched via npx/uvx/bunx" hint="RCE-on-connect vector — every workstation fetches + runs the current upstream release" checked={p.block_stdio_npx} onChange={(v) => toggle("block_stdio_npx", v)} />
+              <PolicyToggle label="Require TLS for URL MCP servers" hint="Block plaintext http:// transports" checked={p.block_http_transport} onChange={(v) => toggle("block_http_transport", v)} />
+              <PolicyToggle label="Require pinned package versions" hint="Flag ^ / ~ / * ranges on AI/MCP dependencies" checked={p.require_pinned_versions} onChange={(v) => toggle("require_pinned_versions", v)} />
+              <PolicyToggle label="Block dangerously_allow_code_execution" hint="Any agent framework config with unsandboxed exec" checked={p.block_dangerous_code_exec} onChange={(v) => toggle("block_dangerous_code_exec", v)} />
+            </div>
+            <div className="mt-5 pt-5 border-t hairline">
+              <label className="block text-[12px] text-muted-foreground mb-1.5">Minimum package age (days) — flag MCP packages younger than this</label>
+              <input
+                type="number" min={0} max={365} value={p.min_package_age_days}
+                onChange={(e) => toggle("min_package_age_days", Number(e.target.value) as never)}
+                className="w-32 h-9 rounded-lg glass px-3 text-[13px] font-mono outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="rounded-2xl hairline border p-6">
+              <h2 className="text-[15px] font-semibold mb-1">Allow-list</h2>
+              <p className="text-[11.5px] text-muted-foreground mb-3">One MCP server identifier (package name or URL) per line. If non-empty, servers not on this list are flagged.</p>
+              <textarea
+                value={allowed} onChange={(e) => setAllowed(e.target.value)}
+                onBlur={() => save.mutate({ allowed_servers: allowed.split("\n").map((l) => l.trim()).filter(Boolean) })}
+                rows={10}
+                placeholder={"@modelcontextprotocol/server-github\n@modelcontextprotocol/server-filesystem"}
+                className="w-full rounded-lg glass p-3 text-[12px] font-mono outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <div className="rounded-2xl hairline border p-6">
+              <h2 className="text-[15px] font-semibold mb-1">Deny-list</h2>
+              <p className="text-[11.5px] text-muted-foreground mb-3">Servers matching these identifiers are flagged as critical on every scan.</p>
+              <textarea
+                value={denied} onChange={(e) => setDenied(e.target.value)}
+                onBlur={() => save.mutate({ denied_servers: denied.split("\n").map((l) => l.trim()).filter(Boolean) })}
+                rows={10}
+                placeholder={"suspicious-mcp-package\nhttp://internal-only.example"}
+                className="w-full rounded-lg glass p-3 text-[12px] font-mono outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+          </div>
+
+          {saved && <p className="text-[12px] text-primary">Saved.</p>}
+        </div>
+      )}
+    </main>
+  );
+}
+
+function PolicyToggle({ label, hint, checked, onChange }: { label: string; hint: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="flex items-start gap-3 cursor-pointer">
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="mt-1 h-4 w-4 accent-primary" />
+      <div>
+        <div className="text-[13px]">{label}</div>
+        <div className="text-[11.5px] text-muted-foreground">{hint}</div>
+      </div>
+    </label>
+  );
+}
+
+// ---------- Watchlist View ----------
+
+function WatchlistView() {
+  const qc = useQueryClient();
+  const watched = useQuery({ queryKey: ["watched"], queryFn: () => listWatchedRepos() });
+  const repos = useQuery({ queryKey: ["repos"], queryFn: () => listRepos() });
+  const [q, setQ] = useState("");
+  const [cadence, setCadence] = useState(24);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const watchedNames = new Set((watched.data ?? []).map((w) => w.repo_full_name));
+  const availableRepos = (repos.data ?? []).filter((r) => !watchedNames.has(r.full_name))
+    .filter((r) => !q.trim() || r.full_name.toLowerCase().includes(q.toLowerCase()));
+
+  async function addWatch(full_name: string, repo_url: string) {
+    setBusy(full_name);
+    try {
+      await watchRepo({ data: { repo_full_name: full_name, repo_url, cadence_hours: cadence } });
+      qc.invalidateQueries({ queryKey: ["watched"] });
+    } finally { setBusy(null); }
+  }
+
+  return (
+    <main className="p-8 max-w-5xl w-full mx-auto">
+      <div className="mb-8">
+        <h1 className="text-[26px] tracking-tight font-semibold">Watchlist</h1>
+        <p className="text-[13px] text-muted-foreground mt-1">Repositories Ward re-scans automatically on a cadence. Scans run in the background whenever the console is open.</p>
+      </div>
+
+      <div className="rounded-2xl hairline border overflow-hidden mb-8">
+        <div className="px-4 h-11 border-b hairline flex items-center text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+          Currently watched · {(watched.data ?? []).length}
+        </div>
+        {(watched.data ?? []).length === 0 ? (
+          <div className="p-8 text-center text-[13px] text-muted-foreground">Nothing on watch yet.</div>
+        ) : (
+          <ul className="divide-y hairline">
+            {watched.data!.map((w) => (
+              <li key={w.id} className="p-4 flex items-center gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13.5px] font-mono truncate">{w.repo_full_name}</div>
+                  <div className="text-[11.5px] text-muted-foreground">
+                    Every {w.cadence_hours}h · {w.last_scanned_at ? `last scanned ${new Date(w.last_scanned_at).toLocaleString()}` : "not scanned yet"}
+                  </div>
+                </div>
+                <button
+                  onClick={async () => { await unwatchRepo({ data: { id: w.id } }); qc.invalidateQueries({ queryKey: ["watched"] }); }}
+                  className="h-8 px-3 rounded-full glass hairline border text-[12px] text-muted-foreground hover:text-foreground transition"
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="rounded-2xl hairline border p-6">
+        <h2 className="text-[15px] font-semibold mb-3">Add repository</h2>
+        <div className="flex gap-2 mb-3">
+          <input
+            placeholder="Filter…" value={q} onChange={(e) => setQ(e.target.value)}
+            className="flex-1 h-10 rounded-lg glass px-3 text-[13px] outline-none focus:ring-2 focus:ring-ring"
+          />
+          <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
+            <span>Every</span>
+            <input
+              type="number" min={1} max={720} value={cadence} onChange={(e) => setCadence(Math.max(1, Number(e.target.value)))}
+              className="w-16 h-10 rounded-lg glass px-2 text-[13px] font-mono outline-none focus:ring-2 focus:ring-ring text-center"
+            />
+            <span>hours</span>
+          </div>
+        </div>
+        {repos.isLoading && <p className="text-[13px] text-muted-foreground py-6 text-center">Loading repositories…</p>}
+        <div className="max-h-[380px] overflow-y-auto divide-y hairline">
+          {availableRepos.map((r) => (
+            <div key={r.full_name} className="py-3 flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="text-[13px] font-mono truncate">{r.full_name}</div>
+                <div className="text-[11.5px] text-muted-foreground truncate">
+                  {r.private ? "private · " : "public · "}{r.language ?? "—"} · ★ {r.stars}
+                </div>
+              </div>
+              <button
+                disabled={busy === r.full_name}
+                onClick={() => addWatch(r.full_name, r.html_url)}
+                className="h-8 px-3 rounded-full bg-foreground text-background text-[12px] font-medium disabled:opacity-40 hover:opacity-90 transition"
+              >
+                {busy === r.full_name ? "Adding…" : "Watch"}
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </main>
+  );
+}
+
 function Modal({ children, onClose, title, wide }: { children: React.ReactNode; onClose: () => void; title?: string; wide?: boolean }) {
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6" onClick={onClose}>
