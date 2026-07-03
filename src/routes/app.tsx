@@ -166,8 +166,8 @@ function Main({
 
   const activeFindings = activeScanQuery.data?.findings ?? [];
   const visibleFindings = useMemo(() => {
-    if (filter === "all") return activeFindings;
-    if (filter === "source" || filter === "judge" || filter === "pdf") return [];
+    if (filter === "all" || filter === "judge") return activeFindings;
+    if (filter === "source" || filter === "pdf") return [];
     return activeFindings.filter((f) => f.agent === filter);
   }, [filter, activeFindings]);
 
@@ -320,7 +320,7 @@ function Main({
                 </div>
               )}
 
-              {filter !== "source" && filter !== "judge" && filter !== "pdf" && (
+              {filter !== "source" && filter !== "pdf" && (
                 <>
                   {visibleFindings.length === 0 ? (
                     <p className="text-[13px] text-muted-foreground py-8 text-center">
@@ -796,8 +796,8 @@ function ScanDetail({ id, onClose }: { id: string; onClose: () => void }) {
   const scan = q.data?.scan;
   const findings = q.data?.findings ?? [];
   const visible = useMemo(() => {
-    if (filter === "all") return findings;
-    if (filter === "source" || filter === "judge" || filter === "pdf") return [];
+    if (filter === "all" || filter === "judge") return findings;
+    if (filter === "source" || filter === "pdf") return [];
     return findings.filter((f) => f.agent === filter);
   }, [filter, findings]);
 
@@ -891,7 +891,7 @@ function ScanDetail({ id, onClose }: { id: string; onClose: () => void }) {
                 </div>
               )}
 
-              {filter !== "source" && filter !== "judge" && filter !== "pdf" && (
+              {filter !== "source" && filter !== "pdf" && (
                 <>
                   {visible.length === 0 ? (
                     <p className="text-[13px] text-muted-foreground py-8 text-center">
