@@ -441,8 +441,8 @@ function ScanDetail({ id, onClose }: { id: string; onClose: () => void }) {
 
           <SummaryCards summary={(scan.summary ?? {}) as Record<string, number>} />
 
-          <div className="flex items-center gap-1 mb-3 text-[12px]">
-            {(["all", "deps", "secrets", "supply", "osint"] as const).map((k) => {
+          <div className="flex flex-wrap items-center gap-1 mb-3 text-[12px]">
+            {(["all", "mcp", "tool-poison", "prompt-injection", "agent-config", "ai-deps"] as const).map((k) => {
               const n = k === "all" ? findings.length : findings.filter((f) => f.agent === k).length;
               return (
                 <button key={k} onClick={() => setFilter(k)}
