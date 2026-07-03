@@ -109,6 +109,28 @@ function Main() {
 
   const connected = !!ghStatus.data?.github_login;
 
+  // Auto-rescan runner: every 60s, check for watched repos that are due.
+  useEffect(() => {
+    if (!connected) return;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const due = await listDueRescans();
+        for (const w of due) {
+          if (cancelled) return;
+          const res = await startScan({ data: { repo_full_name: w.repo_full_name } });
+          await markWatchedScanned({ data: { id: w.id, scan_id: res.scan_id } });
+          qc.invalidateQueries({ queryKey: ["scans"] });
+          qc.invalidateQueries({ queryKey: ["watched"] });
+        }
+      } catch { /* silent */ }
+    };
+    tick();
+    const t = setInterval(tick, 60_000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, [connected, qc]);
+
+
   return (
     <main className="p-8 max-w-5xl w-full mx-auto">
       <div className="flex items-center justify-between mb-8">
