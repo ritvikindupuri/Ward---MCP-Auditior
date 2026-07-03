@@ -57,7 +57,7 @@ function Sidebar({ email }: { email: string | null }) {
     <aside className="border-r hairline h-screen sticky top-0 p-5 flex flex-col">
       <Link to="/" className="flex items-center gap-2.5 mb-8">
         <Mark size={22} />
-        <span className="text-[15px] font-medium tracking-tight">Sable</span>
+        <span className="text-[15px] font-medium tracking-tight">Ward</span>
       </Link>
       <nav className="space-y-1 text-[13px]">
         <div className="px-2.5 py-1.5 rounded-md bg-surface-2 text-foreground">Scans</div>
