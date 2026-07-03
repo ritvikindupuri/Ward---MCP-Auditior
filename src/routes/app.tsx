@@ -7,12 +7,21 @@ import {
   disconnectGithub,
   generateReport,
   getGithubStatus,
+  getPolicy,
   getScan,
+  listDueRescans,
   listRepos,
   listScans,
+  listWatchedRepos,
+  markWatchedScanned,
   saveGithubPat,
   startScan,
+  unwatchRepo,
+  updatePolicy,
+  watchRepo,
 } from "@/lib/ward.functions";
+
+type View = "scans" | "policy" | "watchlist";
 
 export const Route = createFileRoute("/app")({
   head: () => ({
