@@ -320,10 +320,11 @@ function LiveScansPanel({ scans, onOpen }: { scans: ScanListItem[]; onOpen: (id:
 function LiveScanRow({ scan, onOpen }: { scan: ScanListItem; onOpen: () => void }) {
   const progress = (scan.progress ?? {}) as Record<string, string>;
   const agents: Array<{ k: string; label: string; hint: string }> = [
-    { k: "deps",    label: "Vulnera", hint: "OSV.dev" },
-    { k: "secrets", label: "Sift",    hint: "secrets" },
-    { k: "supply",  label: "Lineage", hint: "supply" },
-    { k: "osint",   label: "Signal",  hint: "OSINT" },
+    { k: "mcp",              label: "MCP",       hint: "servers" },
+    { k: "tool-poison",      label: "Poison",    hint: "tool defs" },
+    { k: "prompt-injection", label: "Prompt-Inj",hint: "prompts" },
+    { k: "agent-config",     label: "Config",    hint: "frameworks" },
+    { k: "ai-deps",          label: "AI-CVEs",   hint: "OSV.dev" },
   ];
   const done = agents.filter((a) => progress[a.k] === "done").length;
   const pct = Math.round((done / agents.length) * 100);
