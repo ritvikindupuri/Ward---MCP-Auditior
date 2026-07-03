@@ -41,11 +41,20 @@ npm install
 ```
 
 ### 3. Setup Local AI (Ollama)
-Ensure Ollama is running locally. Pull the default safety classifier model:
+Ensure Ollama is running locally. Ward has **automatic model discovery** and will detect whatever model is running on your machine. 
+
+To download your preferred model:
 ```bash
+# Pull the default security classifier model (Meta Llama Guard 3)
 ollama pull llama-guard3
+
+# Or pull any other general/security models you wish to use:
+ollama pull granite-guardian:8b
+ollama pull llama3
+ollama pull mistral
+ollama pull gemma
 ```
-*(Optional: Pull `granite-guardian:8b` or `llama3` for custom reasoning audits)*
+*Note: If multiple models are installed, the auditor automatically selects the best available security/chat model, falling back to the first available model in your Ollama library.*
 
 ### 4. Configure Environment Variables
 Create a `.env` file in the root folder:
@@ -55,8 +64,9 @@ SUPABASE_URL="https://your-supabase-project.supabase.co"
 SUPABASE_PUBLISHABLE_KEY="your-publishable-key"
 SUPABASE_SERVICE_ROLE_KEY="your-service-role-key"
 
-# Ollama Model Overrides (Optional)
-# AUDIT_AI_MODEL="llama-guard3"
+# Ollama Model Override (Optional)
+# If you want to force the scanner/chat to use a specific model:
+AUDIT_AI_MODEL="mistral"  # e.g., "gemma", "llama3", or "llama-guard3"
 ```
 
 ### 5. Launch the Application
