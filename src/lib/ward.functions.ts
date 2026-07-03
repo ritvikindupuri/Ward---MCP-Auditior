@@ -152,21 +152,63 @@ function tagCompliance(agent: string, key: string = "_default"): ComplianceTag {
 
 // ---------- LLM judge ----------
 
+async function getActiveLocalModel(): Promise<string> {
+  const envModel = process.env.AUDIT_AI_MODEL;
+  if (envModel) return envModel;
+
+  try {
+    const r = await fetch("http://localhost:11434/api/tags");
+    if (r.ok) {
+      const j = await r.json() as { models?: Array<{ name: string }> };
+      const names = (j.models ?? []).map(m => m.name.toLowerCase());
+      
+      if (names.some(n => n.includes("granite-guardian"))) {
+        return "granite-guardian:8b";
+      }
+      if (names.some(n => n.includes("llama-guard3"))) {
+        return "llama-guard3";
+      }
+      if (names.some(n => n.includes("llama3"))) {
+        return "llama3";
+      }
+      if (j.models && j.models.length > 0) {
+        return j.models[0].name;
+      }
+    }
+  } catch (e) {
+    console.warn("Local Ollama endpoint not reachable. Defaulting to llama-guard3 config.");
+  }
+  return "llama-guard3";
+}
+
 async function llmJson<T>(system: string, user: string): Promise<T | null> {
-  const apiKey = process.env.LOVABLE_API_KEY;
-  if (!apiKey) return null;
-  const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Lovable-API-Key": apiKey },
-    body: JSON.stringify({
-      model: "google/gemini-3-flash-preview",
-      messages: [{ role: "system", content: system }, { role: "user", content: user }],
-      response_format: { type: "json_object" },
-    }),
-  });
-  if (!r.ok) return null;
-  const j = (await r.json()) as { choices?: Array<{ message?: { content?: string } }> };
-  try { return JSON.parse(j.choices?.[0]?.message?.content ?? "{}") as T; } catch { return null; }
+  try {
+    const model = await getActiveLocalModel();
+    const r = await fetch("http://localhost:11434/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model,
+        prompt: `System Prompt:\n${system}\n\nTask Request:\n${user}`,
+        stream: false,
+        format: "json",
+      }),
+    });
+    if (!r.ok) return null;
+    const j = await r.json() as any;
+    const text = j.response;
+    if (!text) return null;
+
+    const trimmed = text.trim().toLowerCase();
+    if (trimmed === "safe" || trimmed === "ok" || trimmed === "clean") {
+      return { risks: [] } as any;
+    }
+
+    return JSON.parse(text) as T;
+  } catch (e) {
+    console.error("Local Ollama audit request failed:", e);
+    return null;
+  }
 }
 
 // ---------- npm registry metadata ----------
@@ -507,7 +549,7 @@ export const startScan = createServerFn({ method: "POST" })
       const txt = await ghGetFile(pat, data.repo_full_name, meta.default_branch, f.path);
       if (!txt) continue;
       // heuristic: file references tool/MCP libs
-      if (!/(defineTool|createTool|tool\s*\(|@ai-sdk|@modelcontextprotocol|@anthropic-ai|smithery|mcp\.Server|FunctionTool|@lovable\.dev\/mcp)/.test(txt)) continue;
+      if (!/(defineTool|createTool|tool\s*\(|@ai-sdk|@modelcontextprotocol|@anthropic-ai|smithery|mcp\.Server|FunctionTool)/.test(txt)) continue;
       toolDefsScanned++;
       // Extract description-like strings (rough)
       const descMatches = [...txt.matchAll(/description\s*[:=]\s*(?:`([\s\S]{5,600}?)`|"([\s\S]{5,600}?)"|'([\s\S]{5,600}?)')/g)];
