@@ -37,6 +37,7 @@ function Console() {
   const navigate = useNavigate();
   const [ready, setReady] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
+  const [view, setView] = useState<View>("scans");
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -54,14 +55,21 @@ function Console() {
 
   return (
     <div className="min-h-screen bg-background text-foreground grid grid-cols-[240px_1fr]">
-      <Sidebar email={email} />
-      <Main />
+      <Sidebar email={email} view={view} setView={setView} />
+      {view === "scans" && <Main />}
+      {view === "policy" && <PolicyView />}
+      {view === "watchlist" && <WatchlistView />}
     </div>
   );
 }
 
-function Sidebar({ email }: { email: string | null }) {
+function Sidebar({ email, view, setView }: { email: string | null; view: View; setView: (v: View) => void }) {
   const navigate = useNavigate();
+  const items: Array<{ k: View; label: string }> = [
+    { k: "scans", label: "Scans" },
+    { k: "policy", label: "Policy" },
+    { k: "watchlist", label: "Watchlist" },
+  ];
   return (
     <aside className="border-r hairline h-screen sticky top-0 p-5 flex flex-col">
       <Link to="/" className="flex items-center gap-2.5 mb-8">
@@ -69,7 +77,14 @@ function Sidebar({ email }: { email: string | null }) {
         <span className="text-[15px] font-medium tracking-tight">Ward</span>
       </Link>
       <nav className="space-y-1 text-[13px]">
-        <div className="px-2.5 py-1.5 rounded-md bg-surface-2 text-foreground">Scans</div>
+        {items.map((it) => (
+          <button
+            key={it.k} onClick={() => setView(it.k)}
+            className={`w-full text-left px-2.5 py-1.5 rounded-md transition ${view === it.k ? "bg-surface-2 text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            {it.label}
+          </button>
+        ))}
       </nav>
       <div className="mt-auto pt-6 border-t hairline text-[12px]">
         <div className="text-muted-foreground truncate mb-2" title={email ?? ""}>{email}</div>
