@@ -83,7 +83,7 @@ export const listScans = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("scans")
-      .select("id,repo_full_name,repo_url,status,summary,started_at,completed_at,error")
+      .select("id,repo_full_name,repo_url,status,summary,progress,started_at,completed_at,error")
       .order("started_at", { ascending: false })
       .limit(50);
     if (error) throw new Error(error.message);
