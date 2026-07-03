@@ -96,11 +96,17 @@ graph TD
 <p align="center">Figure 2: Multi-Agent Analysis and Compliance Evaluation Pipeline</p>
 
 The evaluation workflow flows through the following checkpoints:
-1. Repository File Parsing: Filters the file tree for manifest configurations (mcp.json, package.json, requirements.txt) and prompt templates.
-2. Agent Ingestion: The five agents run parallel evaluations. Agents 1, 3, and 5 query external registries and local AI models, while Agents 2 and 4 evaluate files using regex heuristics.
-3. Normalization: The Compliance Tagging Engine receives raw signals and maps them to standard tags.
-4. Judge Arbitration: A local LLM judge evaluates the normalized signals to verify risks and assign severity levels.
-5. Report Export: The finalized audit log is saved to Supabase and compiled into a PDF.
+
+1. Repository File Parsing: Ward filters the repository file tree looking specifically for manifest files (mcp.json, cursor.json, claude_desktop_config.json, package.json, requirements.txt) and prompt templates (.md, .txt, .yaml, .json).
+2. Agent Ingestion: The five security agents execute parallel evaluations:
+    * Agent 1 (MCP Server Scanner): Parses MCP config servers. It resolves the package target, queries the npm registry to evaluate package metadata, and flags scripts (pre/post install script risks), young package ages (e.g. less than 30 days old), and solo maintainers.
+    * Agent 2 (Tool Poisoning Detector): Audits tool descriptions in JSON files and source definitions (defineTool, createTool) using regex heuristics. It flags hidden instructions (e.g. <IMPORTANT> tags), zero-width whitespace character bypasses, role overrides, system impersonation, and exfiltration targets.
+    * Agent 3 (Local AI Prompt Auditor): Reads system prompt templates and inline configurations. It runs a local LLM inference query against Ollama to classify semantic prompt injections, hijack attempts, and jailbreaks.
+    * Agent 4 (Agent Framework Config Auditor): Scans orchestrator configurations (LangChain, CrewAI, AutoGen, Vercel AI SDK) for properties such as dangerouslyAllowCodeExecution set to true, PythonREPLTool usage without sandboxing, or unbounded max iterations.
+    * Agent 5 (AI-stack CVE Checker): Extracts AI-related packages and queries the Google OSV API endpoint in a batch to look up known CVE listings.
+3. Normalization: The Compliance Tagging Engine maps findings to OWASP LLM Top 10 categories (e.g., LLM01, LLM03, LLM06) and the NIST AI RMF framework.
+4. Judge Arbitration: A local LLM judge evaluates the aggregated findings, filters false positives, writes reasoning text, and sets the final severity.
+5. Report Export: Saves scanned logs as PostgreSQL rows in Supabase and builds a downloadable PDF.
 
 ---
 
