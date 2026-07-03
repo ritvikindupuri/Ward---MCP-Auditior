@@ -141,7 +141,7 @@ export function AuthShell({ mode }: { mode: "signin" | "signup" }) {
               </>
             ) : (
               <>
-                New to Sable?{" "}
+                New to Ward?{" "}
                 <Link to="/sign-up" className="text-foreground hover:underline underline-offset-4">
                   Create an account
                 </Link>
