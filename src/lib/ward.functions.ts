@@ -114,6 +114,42 @@ export const getScan = createServerFn({ method: "GET" })
     return { scan, findings: findings ?? [] };
   });
 
+// ---------- Compliance mapping (OWASP LLM Top 10 · NIST AI RMF) ----------
+
+/**
+ * Static, deterministic mapping — no LLM, no external calls.
+ * Sources: OWASP Top 10 for LLM Applications 2025 & NIST AI RMF 1.0.
+ * Every finding gets one row through this map so the PDF + UI can group by
+ * the frameworks CISOs actually procure against.
+ */
+type ComplianceTag = { owasp_llm: string; nist_ai_rmf: string };
+
+const COMPLIANCE_MAP: Record<string, Record<string, ComplianceTag>> = {
+  mcp: {
+    stdio_npx: { owasp_llm: "LLM03", nist_ai_rmf: "MAP-4.1" },        // Supply chain
+    http_transport: { owasp_llm: "LLM02", nist_ai_rmf: "MEASURE-2.6" }, // Sensitive info disclosure
+    install_script: { owasp_llm: "LLM03", nist_ai_rmf: "MAP-4.1" },
+    young_package: { owasp_llm: "LLM03", nist_ai_rmf: "MAP-4.1" },
+    solo_maintainer: { owasp_llm: "LLM03", nist_ai_rmf: "MAP-4.1" },
+    denied_server: { owasp_llm: "LLM03", nist_ai_rmf: "GOVERN-1.1" },
+    not_on_allowlist: { owasp_llm: "LLM03", nist_ai_rmf: "GOVERN-1.1" },
+    unpinned_version: { owasp_llm: "LLM03", nist_ai_rmf: "MAP-4.1" },
+    _default: { owasp_llm: "LLM03", nist_ai_rmf: "MAP-4.1" },
+  },
+  "tool-poison": { _default: { owasp_llm: "LLM01", nist_ai_rmf: "MEASURE-2.7" } },      // Prompt injection
+  "prompt-injection": { _default: { owasp_llm: "LLM01", nist_ai_rmf: "MEASURE-2.7" } },
+  "agent-config": {
+    dangerous_exec: { owasp_llm: "LLM06", nist_ai_rmf: "MANAGE-2.3" }, // Excessive agency
+    _default: { owasp_llm: "LLM06", nist_ai_rmf: "MANAGE-2.3" },
+  },
+  "ai-deps": { _default: { owasp_llm: "LLM03", nist_ai_rmf: "MAP-4.1" } },              // Supply chain
+};
+
+function tagCompliance(agent: string, key: string = "_default"): ComplianceTag {
+  const bucket = COMPLIANCE_MAP[agent] ?? {};
+  return bucket[key] ?? bucket._default ?? { owasp_llm: "LLM10", nist_ai_rmf: "MAP-1.1" };
+}
+
 // ---------- LLM judge ----------
 
 async function llmJson<T>(system: string, user: string): Promise<T | null> {
