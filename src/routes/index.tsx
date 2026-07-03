@@ -22,78 +22,39 @@ export function Mark({ size = 26, glow = true }: { size?: number; glow?: boolean
   return (
     <div className="relative flex items-center justify-center group">
       {glow && (
-        <div className="absolute inset-0 bg-emerald-500/25 blur-[12px] rounded-full scale-125 opacity-70 group-hover:scale-135 group-hover:opacity-90 transition-all duration-700" />
+        <div className="absolute inset-0 bg-accent/20 blur-[10px] rounded-full scale-110 opacity-75 group-hover:opacity-90 transition-all duration-500" />
       )}
       <svg
         width={size}
         height={size}
-        viewBox="0 0 40 40"
+        viewBox="0 0 32 32"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className="relative transform transition-all duration-500 group-hover:scale-105"
+        className="relative transform transition-all duration-300 group-hover:scale-105"
       >
         <defs>
-          <linearGradient id="mcpGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="oklch(0.929 0.013 255.508)" />
-            <stop offset="50%" stopColor="oklch(0.551 0.027 264.364)" />
-            <stop offset="100%" stopColor="oklch(0.208 0.042 265.755)" />
-          </linearGradient>
           <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#34d399" />
-            <stop offset="100%" stopColor="#10b981" />
+            <stop offset="0%" stopColor="#f97316" />
+            <stop offset="100%" stopColor="#ea580c" />
           </linearGradient>
         </defs>
-
-        {/* The W-shaped Flow Pipeline (Prompt -> Shield/Ward -> Tool) */}
+        {/* Sleek Minimalist Outer Shield */}
         <path
-          d="M 9.5 17.5 C 10 25, 16 32, 20 18 C 24 32, 30 25, 30.5 17.5"
-          stroke="url(#mcpGrad)"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="opacity-60"
-        />
-        <path
-          d="M 9.5 17.5 C 10 25, 16 32, 20 18 C 24 32, 30 25, 30.5 17.5"
+          d="M16 3 L27 7.5 V15 C27 21.5 22.2 26 16 28 C9.8 26 5 21.5 5 15 V7.5 Z"
           stroke="url(#shieldGrad)"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeDasharray="2 4"
-          className="opacity-90 animate-[marquee_20s_linear_infinite]"
+          strokeWidth="2.2"
+          strokeLinejoin="round"
+          fill="none"
         />
-
-        {/* Left Node: Prompt/LLM Speech Bubble */}
-        <g className="text-white/70 group-hover:text-white transition-colors duration-300">
-          <circle cx="9.5" cy="14" r="4" stroke="currentColor" strokeWidth="1.5" fill="oklch(0.129 0.042 264.695)" />
-          <path d="M 7.5 17 L 5.5 19 L 8.5 17.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          <circle cx="9.5" cy="14" r="1" fill="#34d399" />
-        </g>
-
-        {/* Right Node: Tool/Server Hexagon */}
-        <g className="text-white/70 group-hover:text-white transition-colors duration-300">
-          <path
-            d="M 30.5 9.5 L 34.5 11.8 V 16.2 L 30.5 18.5 L 26.5 16.2 V 11.8 Z"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            fill="oklch(0.129 0.042 264.695)"
-            strokeLinejoin="round"
-          />
-          <circle cx="30.5" cy="14" r="1" fill="#34d399" />
-        </g>
-
-        {/* Center Vertex: The Ward Shield Node */}
-        <g className="filter drop-shadow-[0_2px_8px_rgba(52,211,153,0.3)]">
-          <path
-            d="M 20 9 L 25 11 V 17 C 25 21, 20 24, 20 24 C 20 24, 15 21, 15 17 V 11 Z"
-            fill="url(#shieldGrad)"
-            stroke="url(#mcpGrad)"
-            strokeWidth="1.5"
-            strokeLinejoin="round"
-          />
-          {/* Lock keyhole inside shield representing the ward obstacles */}
-          <circle cx="20" cy="14.5" r="1.5" fill="oklch(0.129 0.042 264.695)" />
-          <path d="M 19.5 16 H 20.5 L 21 19 H 19 L 19.5 16" fill="oklch(0.129 0.042 264.695)" />
-        </g>
+        {/* Clean Center Sentinel Eye/Core */}
+        <circle cx="16" cy="14" r="3" fill="url(#shieldGrad)" />
+        {/* Sleek vertical locking gate keyhole slit */}
+        <path
+          d="M16 17 V23"
+          stroke="url(#shieldGrad)"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
       </svg>
     </div>
   );
