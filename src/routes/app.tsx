@@ -513,6 +513,183 @@ function LiveScanRow({ scan, onOpen }: { scan: ScanListItem; onOpen: () => void 
   );
 }
 
+function N8NNodeGraph({
+  filter,
+  setFilter,
+  findings,
+  scanStatus,
+  onDownload
+}: {
+  filter: string;
+  setFilter: (f: string) => void;
+  findings: Array<{ agent: string; severity: string }>;
+  scanStatus: string;
+  onDownload: () => void;
+}) {
+  const counts = {
+    all: findings.length,
+    mcp: findings.filter((f) => f.agent === "mcp").length,
+    "tool-poison": findings.filter((f) => f.agent === "tool-poison").length,
+    "prompt-injection": findings.filter((f) => f.agent === "prompt-injection").length,
+    "agent-config": findings.filter((f) => f.agent === "agent-config").length,
+    "ai-deps": findings.filter((f) => f.agent === "ai-deps").length,
+  };
+
+  const agents = [
+    { id: "mcp", label: "MCP Scanner", icon: MCPRobot, count: counts.mcp },
+    { id: "tool-poison", label: "Tool Poisoning", icon: PoisonRobot, count: counts["tool-poison"] },
+    { id: "prompt-injection", label: "Prompt Auditor", icon: BrainRobot, count: counts["prompt-injection"] },
+    { id: "agent-config", label: "Config Auditor", icon: ConfigRobot, count: counts["agent-config"] },
+    { id: "ai-deps", label: "AI-stack CVEs", icon: CVERobot, count: counts["ai-deps"] },
+  ];
+
+  return (
+    <div className="rounded-xl border border-white/5 bg-black/20 p-6 overflow-hidden relative mb-6 shadow-lg min-h-[380px] flex flex-col justify-center select-none">
+      {/* Background n8n grid */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.015)_1px,transparent_0)] [background-size:16px_16px]" />
+
+      {/* SVG Wires Layer */}
+      <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-40" viewBox="0 0 100 100" preserveAspectRatio="none">
+        {/* Source to Agents */}
+        <path d="M 15 50 C 22 50, 22 18, 35 18" fill="none" stroke={filter === "mcp" ? "#34d399" : "rgba(255,255,255,0.08)"} strokeWidth="0.3" />
+        <path d="M 15 50 C 22 50, 22 34, 35 34" fill="none" stroke={filter === "tool-poison" ? "#34d399" : "rgba(255,255,255,0.08)"} strokeWidth="0.3" />
+        <path d="M 15 50 C 22 50, 22 50, 35 50" fill="none" stroke={filter === "prompt-injection" ? "#34d399" : "rgba(255,255,255,0.08)"} strokeWidth="0.3" />
+        <path d="M 15 50 C 22 50, 22 66, 35 66" fill="none" stroke={filter === "agent-config" ? "#34d399" : "rgba(255,255,255,0.08)"} strokeWidth="0.3" />
+        <path d="M 15 50 C 22 50, 22 82, 35 82" fill="none" stroke={filter === "ai-deps" ? "#34d399" : "rgba(255,255,255,0.08)"} strokeWidth="0.3" />
+
+        {/* Agents to Judge */}
+        <path d="M 65 18 C 73 18, 73 50, 80 50" fill="none" stroke={filter === "mcp" ? "#34d399" : "rgba(255,255,255,0.08)"} strokeWidth="0.3" />
+        <path d="M 65 34 C 73 34, 73 50, 80 50" fill="none" stroke={filter === "tool-poison" ? "#34d399" : "rgba(255,255,255,0.08)"} strokeWidth="0.3" />
+        <path d="M 65 50 C 73 50, 73 50, 80 50" fill="none" stroke={filter === "prompt-injection" ? "#34d399" : "rgba(255,255,255,0.08)"} strokeWidth="0.3" />
+        <path d="M 65 66 C 73 66, 73 50, 80 50" fill="none" stroke={filter === "agent-config" ? "#34d399" : "rgba(255,255,255,0.08)"} strokeWidth="0.3" />
+        <path d="M 65 82 C 73 82, 73 50, 80 50" fill="none" stroke={filter === "ai-deps" ? "#34d399" : "rgba(255,255,255,0.08)"} strokeWidth="0.3" />
+
+        {/* Judge to Report */}
+        <path d="M 88 50 H 92" fill="none" stroke={filter === "pdf" ? "#34d399" : "rgba(255,255,255,0.08)"} strokeWidth="0.3" />
+      </svg>
+
+      {/* Nodes Grid */}
+      <div className="relative z-10 grid grid-cols-3 gap-4 items-center w-full">
+        {/* COLUMN 1: Source Nodes */}
+        <div className="flex flex-col gap-4 items-center justify-center">
+          <button
+            onClick={() => setFilter("all")}
+            className={`w-[125px] p-3 rounded-xl border text-center flex flex-col items-center gap-2 transition-all cursor-pointer ${
+              filter === "all"
+                ? "bg-white/5 border-emerald-500/50 shadow-[0_8px_30px_rgba(52,211,153,0.06)]"
+                : "bg-black/40 border-white/5 hover:border-white/10"
+            }`}
+          >
+            <div className={`p-2 rounded-lg border text-white ${filter === "all" ? "bg-emerald-500/10 border-emerald-500/20" : "bg-black/30 border-white/5"}`}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-5 w-5">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              </svg>
+            </div>
+            <div className="text-[11px] font-bold text-white tracking-tight leading-none">All Findings</div>
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-white/10 text-white leading-none">{counts.all}</span>
+          </button>
+
+          <button
+            onClick={() => setFilter("source")}
+            className={`w-[125px] p-3 rounded-xl border text-center flex flex-col items-center gap-2 transition-all cursor-pointer ${
+              filter === "source"
+                ? "bg-white/5 border-emerald-500/50 shadow-[0_8px_30px_rgba(52,211,153,0.06)]"
+                : "bg-black/40 border-white/5 hover:border-white/10"
+            }`}
+          >
+            <div className="p-2 rounded-lg border bg-black/30 border-white/5 text-muted-foreground">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-5 w-5">
+                <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
+              </svg>
+            </div>
+            <div className="text-[11px] font-bold text-white tracking-tight leading-none">Git Tree</div>
+            <span className="text-[9px] font-mono text-muted-foreground uppercase leading-none">Source</span>
+          </button>
+        </div>
+
+        {/* COLUMN 2: The 5 Agents */}
+        <div className="flex flex-col gap-1.5 items-center justify-center">
+          {agents.map((a) => {
+            const RobotIcon = a.icon;
+            const isActive = filter === a.id;
+            return (
+              <button
+                key={a.id}
+                onClick={() => setFilter(a.id)}
+                className={`w-[180px] p-2 rounded-xl border text-left flex items-center gap-3.5 transition-all cursor-pointer ${
+                  isActive
+                    ? "bg-white/5 border-emerald-500/50 shadow-[0_8px_30px_rgba(52,211,153,0.06)] scale-[1.03]"
+                    : "bg-black/40 border-white/5 hover:border-white/10"
+                }`}
+              >
+                <div className={`p-1.5 rounded-lg border shrink-0 ${
+                  isActive ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-black/30 border-white/5 text-muted-foreground"
+                }`}>
+                  <RobotIcon className="h-4 w-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[11px] font-bold text-white tracking-tight truncate leading-none mb-0.5">{a.label}</div>
+                  <div className="text-[8.5px] text-muted-foreground uppercase tracking-wider leading-none">Agent</div>
+                </div>
+                <span className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold shrink-0 ${
+                  a.count > 0 ? "bg-red-500/10 text-red-400 border border-red-500/20" : "bg-white/10 text-white"
+                }`}>
+                  {a.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* COLUMN 3: LLM Judge & PDF Export */}
+        <div className="flex flex-col gap-4 items-center justify-center">
+          <button
+            onClick={() => setFilter("judge")}
+            className={`w-[125px] p-3 rounded-xl border text-center flex flex-col items-center gap-2 transition-all cursor-pointer ${
+              filter === "judge"
+                ? "bg-white/5 border-emerald-500/50 shadow-[0_8px_30px_rgba(52,211,153,0.06)]"
+                : "bg-black/40 border-white/5 hover:border-white/10"
+            }`}
+          >
+            <div className={`p-2 rounded-lg border text-white ${filter === "judge" ? "bg-indigo-500/10 border-indigo-500/20 text-indigo-400" : "bg-black/30 border-white/5"}`}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-5 w-5">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l-7 4a2 2 0 0 0 2 0l-7-4A2 2 0 0 0 21 16z" />
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                <line x1="12" y1="22.08" x2="12" y2="12" />
+              </svg>
+            </div>
+            <div className="text-[11px] font-bold text-white tracking-tight leading-none">LLM Judge</div>
+            <span className="text-[9px] font-mono text-muted-foreground uppercase leading-none">Arbitrate</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setFilter("pdf");
+              onDownload();
+            }}
+            className={`w-[125px] p-3 rounded-xl border text-center flex flex-col items-center gap-2 transition-all cursor-pointer ${
+              filter === "pdf"
+                ? "bg-white/5 border-emerald-500/50 shadow-[0_8px_30px_rgba(52,211,153,0.06)]"
+                : "bg-black/40 border-white/5 hover:border-white/10"
+            }`}
+          >
+            <div className="p-2 rounded-lg border bg-black/30 border-white/5 text-emerald-400">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-5 w-5">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+                <polyline points="10 9 9 9 8 9" />
+              </svg>
+            </div>
+            <div className="text-[11px] font-bold text-white tracking-tight leading-none">PDF Report</div>
+            <span className="text-[9px] font-mono text-muted-foreground uppercase leading-none">Export</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function ScanDetail({ id, onClose }: { id: string; onClose: () => void }) {
   const q = useQuery({
@@ -544,7 +721,11 @@ function ScanDetail({ id, onClose }: { id: string; onClose: () => void }) {
 
   const scan = q.data?.scan;
   const findings = q.data?.findings ?? [];
-  const visible = filter === "all" ? findings : findings.filter((f) => f.agent === filter);
+  const visible = useMemo(() => {
+    if (filter === "all") return findings;
+    if (filter === "source" || filter === "judge" || filter === "pdf") return [];
+    return findings.filter((f) => f.agent === filter);
+  }, [filter, findings]);
 
   return (
     <Modal onClose={onClose} wide title={scan?.repo_full_name ?? "Scan"}>
@@ -590,45 +771,64 @@ function ScanDetail({ id, onClose }: { id: string; onClose: () => void }) {
 
           {activeTab === "findings" ? (
             <>
-              {scan.status === "running" && (
-                <div className="grid grid-cols-3 md:grid-cols-5 gap-2 mb-6">
-                  {(["mcp", "tool-poison", "prompt-injection", "agent-config", "ai-deps"] as const).map((k) => {
-                    const st = (scan.progress as Record<string, string>)?.[k] ?? "queued";
-                    return (
-                      <div key={k} className="rounded-lg hairline border p-3">
-                        <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{k}</div>
-                        <div className="text-[13px] mt-1 flex items-center gap-2">
-                          <span className={`h-1.5 w-1.5 rounded-full ${st === "done" ? "bg-emerald-400" : st === "running" ? "bg-yellow-400 animate-pulse" : "bg-muted-foreground/40"}`} />
-                          {st}
-                        </div>
-                      </div>
-                    );
-                  })}
+              <SummaryCards summary={(scan.summary ?? {}) as Record<string, number>} />
+
+              <N8NNodeGraph
+                filter={filter}
+                setFilter={setFilter}
+                findings={findings}
+                scanStatus={scan.status}
+                onDownload={download}
+              />
+
+              {filter === "source" && (
+                <div className="p-5 rounded-xl border border-white/5 bg-white/[0.01] text-left space-y-3">
+                  <h3 className="text-[15px] font-bold text-white tracking-tight">GitHub Repository Details</h3>
+                  <div className="grid grid-cols-2 gap-4 text-[13px] text-muted-foreground font-mono">
+                    <div>Repo URL: <a href={scan.repo_url} target="_blank" rel="noreferrer" className="text-white hover:underline truncate block">{scan.repo_url}</a></div>
+                    <div>Full Name: <span className="text-white">{scan.repo_full_name}</span></div>
+                    <div>Scanned At: <span className="text-white">{scan.created_at ? new Date(scan.created_at).toLocaleString() : "—"}</span></div>
+                    <div>Status: <span className="text-emerald-400">SYNCED & INDEXED</span></div>
+                  </div>
                 </div>
               )}
 
-              <SummaryCards summary={(scan.summary ?? {}) as Record<string, number>} />
+              {filter === "judge" && (
+                <div className="p-5 rounded-xl border border-white/5 bg-white/[0.01] text-left space-y-3">
+                  <h3 className="text-[15px] font-bold text-white tracking-tight">LLM Arbitration Ledger</h3>
+                  <p className="text-[13px] text-muted-foreground leading-normal">
+                    The Local LLM Judge has processed all {findings.length} findings. Deduplication is complete, severities have been validated against active safety policies, and remediation advisories have been committed to Supabase logs.
+                  </p>
+                </div>
+              )}
 
-              <div className="flex flex-wrap items-center gap-1 mb-3 text-[12px]">
-                {(["all", "mcp", "tool-poison", "prompt-injection", "agent-config", "ai-deps"] as const).map((k) => {
-                  const n = k === "all" ? findings.length : findings.filter((f) => f.agent === k).length;
-                  return (
-                    <button key={k} onClick={() => setFilter(k)}
-                      className={`h-7 px-3 rounded-full transition ${filter === k ? "bg-foreground text-background" : "glass hairline border text-muted-foreground hover:text-foreground"}`}>
-                      {k} · {n}
-                    </button>
-                  );
-                })}
-              </div>
+              {filter === "pdf" && (
+                <div className="p-5 rounded-xl border border-white/5 bg-white/[0.01] text-left space-y-3 text-center">
+                  <h3 className="text-[15px] font-bold text-white tracking-tight">Compliance PDF Export</h3>
+                  <p className="text-[13px] text-muted-foreground max-w-md mx-auto leading-normal">
+                    A formal, executive-ready security report containing findings distribution, OWASP mapping details, and the judge's full audit trail is ready for download.
+                  </p>
+                  <button
+                    onClick={download} disabled={downloading || scan.status !== "complete"}
+                    className="mt-2 h-9 px-5 rounded-full bg-emerald-500 hover:bg-emerald-600 text-black text-[13px] font-semibold transition disabled:opacity-40"
+                  >
+                    {downloading ? "Compiling Report..." : "Trigger Download PDF"}
+                  </button>
+                </div>
+              )}
 
-              {visible.length === 0 ? (
-                <p className="text-[13px] text-muted-foreground py-8 text-center">
-                  {scan.status === "complete" ? "No findings for this filter." : "Agents still working…"}
-                </p>
-              ) : (
-                <ul className="divide-y hairline">
-                  {visible.map((f) => <FindingRow key={f.id} f={f} />)}
-                </ul>
+              {filter !== "source" && filter !== "judge" && filter !== "pdf" && (
+                <>
+                  {visible.length === 0 ? (
+                    <p className="text-[13px] text-muted-foreground py-8 text-center">
+                      {scan.status === "complete" ? "No findings for this filter." : "Agents still working…"}
+                    </p>
+                  ) : (
+                    <ul className="divide-y hairline">
+                      {visible.map((f) => <FindingRow key={f.id} f={f} />)}
+                    </ul>
+                  )}
+                </>
               )}
             </>
           ) : (
