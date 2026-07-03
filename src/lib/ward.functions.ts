@@ -321,23 +321,40 @@ export const startScan = createServerFn({ method: "POST" })
     }).select().single();
     if (se || !scan) throw new Error("Failed to create scan");
 
+    // Load org policy (auto-provision defaults on first scan)
+    let { data: policy } = await supabase.from("mcp_policies").select("*").eq("user_id", userId).maybeSingle();
+    if (!policy) {
+      const { data: created } = await supabase.from("mcp_policies").insert({ user_id: userId }).select().single();
+      policy = created;
+    }
+    const allowList = new Set<string>(((policy?.allowed_servers ?? []) as string[]).map((s) => s.toLowerCase()));
+    const denyList = new Set<string>(((policy?.denied_servers ?? []) as string[]).map((s) => s.toLowerCase()));
+
     const summary: Record<string, number> = {
       mcp: 0, "tool-poison": 0, "prompt-injection": 0, "agent-config": 0, "ai-deps": 0,
       critical: 0, high: 0, medium: 0, low: 0, info: 0,
       mcp_servers_found: 0, tool_defs_scanned: 0, prompts_scanned: 0, ai_deps_analyzed: 0,
+      policy_violations: 0,
     };
     const bump = (sev: string) => { summary[sev] = (summary[sev] ?? 0) + 1; };
     const insertFindings = async (rows: Array<{
       agent: string; severity: string; title: string; description?: string;
       evidence?: Record<string, unknown>; judge_verdict?: string; judge_reasoning?: string;
+      compliance_key?: string; policy_violation?: string;
     }>) => {
       if (!rows.length) return;
-      await supabase.from("findings").insert(rows.map((r) => ({
-        scan_id: scan.id, user_id: userId,
-        agent: r.agent, severity: r.severity, title: r.title,
-        description: r.description ?? null, evidence: (r.evidence ?? {}) as never,
-        judge_verdict: r.judge_verdict ?? null, judge_reasoning: r.judge_reasoning ?? null,
-      })));
+      await supabase.from("findings").insert(rows.map((r) => {
+        const tag = tagCompliance(r.agent, r.compliance_key);
+        if (r.policy_violation) summary.policy_violations = (summary.policy_violations ?? 0) + 1;
+        return {
+          scan_id: scan.id, user_id: userId,
+          agent: r.agent, severity: r.severity, title: r.title,
+          description: r.description ?? null, evidence: (r.evidence ?? {}) as never,
+          judge_verdict: r.judge_verdict ?? null, judge_reasoning: r.judge_reasoning ?? null,
+          owasp_llm: tag.owasp_llm, nist_ai_rmf: tag.nist_ai_rmf,
+          policy_violation: r.policy_violation ?? null,
+        };
+      }));
     };
     const setProgress = async (patch: Record<string, string>) => {
       const current = (scan.progress ?? {}) as Record<string, string>;
