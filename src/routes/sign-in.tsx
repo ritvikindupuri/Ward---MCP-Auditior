@@ -7,8 +7,8 @@ import { lovable } from "@/integrations/lovable";
 export const Route = createFileRoute("/sign-in")({
   head: () => ({
     meta: [
-      { title: "Sign in — Sable" },
-      { name: "description", content: "Sign in to Sable." },
+      { title: "Sign in — Ward" },
+      { name: "description", content: "Sign in to Ward." },
     ],
   }),
   component: () => <AuthShell mode="signin" />,
