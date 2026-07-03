@@ -939,3 +939,105 @@ export const generateReport = createServerFn({ method: "POST" })
     const b64 = btoa(bin);
     return { filename: `ward-${scan.repo_full_name.replace(/\//g, "-")}-${scan.id.slice(0, 8)}.pdf`, base64: b64 };
   });
+
+// ---------- Policy engine ----------
+
+export const getPolicy = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data } = await context.supabase.from("mcp_policies").select("*").eq("user_id", context.userId).maybeSingle();
+    if (data) return data;
+    const { data: created } = await context.supabase.from("mcp_policies").insert({ user_id: context.userId }).select().single();
+    return created;
+  });
+
+export const updatePolicy = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({
+    allowed_servers: z.array(z.string().trim().min(1)).max(500).optional(),
+    denied_servers: z.array(z.string().trim().min(1)).max(500).optional(),
+    block_stdio_npx: z.boolean().optional(),
+    block_http_transport: z.boolean().optional(),
+    require_pinned_versions: z.boolean().optional(),
+    block_dangerous_code_exec: z.boolean().optional(),
+    min_package_age_days: z.number().int().min(0).max(365).optional(),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: existing } = await context.supabase.from("mcp_policies").select("id").eq("user_id", context.userId).maybeSingle();
+    if (!existing) {
+      const { data: created, error } = await context.supabase.from("mcp_policies").insert({ user_id: context.userId, ...data }).select().single();
+      if (error) throw new Error(error.message);
+      return created;
+    }
+    const { data: updated, error } = await context.supabase.from("mcp_policies").update(data).eq("user_id", context.userId).select().single();
+    if (error) throw new Error(error.message);
+    return updated;
+  });
+
+// ---------- Watched repos ----------
+
+export const listWatchedRepos = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("watched_repos")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
+
+export const watchRepo = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({
+    repo_full_name: z.string().min(3),
+    repo_url: z.string().url(),
+    cadence_hours: z.number().int().min(1).max(24 * 30).default(24),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: row, error } = await context.supabase
+      .from("watched_repos")
+      .upsert(
+        { user_id: context.userId, ...data, enabled: true, updated_at: new Date().toISOString() },
+        { onConflict: "user_id,repo_full_name" },
+      )
+      .select().single();
+    if (error) throw new Error(error.message);
+    return row;
+  });
+
+export const unwatchRepo = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.from("watched_repos").delete().eq("id", data.id).eq("user_id", context.userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/**
+ * Which watched repos are due for a rescan? Client polls this and, for any
+ * returned entry, calls startScan and then markScanned. Keeps the whole loop
+ * inside authenticated server functions (no cron secret needed).
+ */
+export const listDueRescans = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data } = await context.supabase.from("watched_repos").select("*").eq("enabled", true);
+    const now = Date.now();
+    return (data ?? []).filter((w) => {
+      if (!w.last_scanned_at) return true;
+      const elapsedH = (now - new Date(w.last_scanned_at).getTime()) / 3_600_000;
+      return elapsedH >= (w.cadence_hours ?? 24);
+    });
+  });
+
+export const markWatchedScanned = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid(), scan_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await context.supabase.from("watched_repos")
+      .update({ last_scanned_at: new Date().toISOString(), last_scan_id: data.scan_id })
+      .eq("id", data.id).eq("user_id", context.userId);
+    return { ok: true };
+  });
