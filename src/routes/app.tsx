@@ -135,6 +135,42 @@ function Main({
   const [showConnect, setShowConnect] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
 
+  const [filter, setFilter] = useState<string>("all");
+  const [downloading, setDownloading] = useState(false);
+  const [dlErr, setDlErr] = useState<string | null>(null);
+
+  const activeScanQuery = useQuery({
+    queryKey: ["scan", activeScanId],
+    queryFn: () => getScan({ data: { id: activeScanId! } }),
+    enabled: !!activeScanId,
+    refetchInterval: (query) => (query.state.data?.scan.status === "running" ? 2500 : false),
+  });
+
+  async function downloadActiveReport() {
+    if (!activeScanId) return;
+    setDownloading(true); setDlErr(null);
+    try {
+      const res = await generateReport({ data: { id: activeScanId } });
+      const bin = atob(res.base64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const blob = new Blob([bytes], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = res.filename; document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setDlErr(e instanceof Error ? e.message : "Failed");
+    } finally { setDownloading(false); }
+  }
+
+  const activeFindings = activeScanQuery.data?.findings ?? [];
+  const visibleFindings = useMemo(() => {
+    if (filter === "all") return activeFindings;
+    if (filter === "source" || filter === "judge" || filter === "pdf") return [];
+    return activeFindings.filter((f) => f.agent === filter);
+  }, [filter, activeFindings]);
+
   const connected = !!ghStatus.data?.github_login;
 
   // Auto-set the most recent scan as the active session on load if not set
@@ -245,23 +281,65 @@ function Main({
                 </div>
               </div>
 
-              {activeScan.status === "running" ? (
-                <div className="space-y-2">
-                  <div className="flex justify-between text-[11px] text-muted-foreground font-mono">
-                    <span>SCANNING REPOSITORY STACK</span>
-                    <span>Running Agents...</span>
+              <SummaryCards summary={(activeScan.summary ?? {}) as Record<string, number>} />
+
+              <N8NNodeGraph
+                filter={filter}
+                setFilter={setFilter}
+                findings={activeFindings}
+                scanStatus={activeScan.status}
+                onDownload={downloadActiveReport}
+              />
+
+              {filter === "source" && (
+                <div className="p-5 rounded-xl border border-white/5 bg-white/[0.01] text-left space-y-3">
+                  <h3 className="text-[15px] font-bold text-white tracking-tight">GitHub Repository Details</h3>
+                  <div className="grid grid-cols-2 gap-4 text-[13px] text-muted-foreground font-mono">
+                    <div>Repo URL: <a href={activeScan.repo_url} target="_blank" rel="noreferrer" className="text-white hover:underline truncate block">{activeScan.repo_url}</a></div>
+                    <div>Full Name: <span className="text-white">{activeScan.repo_full_name}</span></div>
+                    <div>Scanned At: <span className="text-white">{activeScan.created_at ? new Date(activeScan.created_at).toLocaleString() : "—"}</span></div>
+                    <div>Status: <span className="text-emerald-400">SYNCED & INDEXED</span></div>
                   </div>
-                  <LiveScansPanel scans={[activeScan]} onOpen={setOpenScanId} />
                 </div>
-              ) : activeScan.status === "complete" ? (
-                <div className="pt-2">
-                  <SummaryCards summary={(activeScan.summary ?? {}) as Record<string, number>} />
-                  <p className="text-[12.5px] text-muted-foreground mt-2">
-                    Security analysis completed. The report is preserved in your database log. Click <span className="text-white">View Details</span> to open the compliance dashboard and chat with the AI Auditor.
+              )}
+
+              {filter === "judge" && (
+                <div className="p-5 rounded-xl border border-white/5 bg-white/[0.01] text-left space-y-3">
+                  <h3 className="text-[15px] font-bold text-white tracking-tight">LLM Arbitration Ledger</h3>
+                  <p className="text-[13px] text-muted-foreground leading-normal">
+                    The Local LLM Judge has processed all {activeFindings.length} findings. Deduplication is complete, severities have been validated against active safety policies, and remediation advisories have been committed to Supabase logs.
                   </p>
                 </div>
-              ) : (
-                <p className="text-[13px] text-destructive">{activeScan.error || "An error occurred during scanning."}</p>
+              )}
+
+              {filter === "pdf" && (
+                <div className="p-5 rounded-xl border border-white/5 bg-white/[0.01] text-left space-y-3 text-center">
+                  <h3 className="text-[15px] font-bold text-white tracking-tight">Compliance PDF Export</h3>
+                  <p className="text-[13px] text-muted-foreground max-w-md mx-auto leading-normal">
+                    A formal, executive-ready security report containing findings distribution, OWASP mapping details, and the judge's full audit trail is ready for download.
+                  </p>
+                  <button
+                    onClick={downloadActiveReport} disabled={downloading || activeScan.status !== "complete"}
+                    className="mt-2 h-9 px-5 rounded-full bg-emerald-500 hover:bg-emerald-600 text-black text-[13px] font-semibold transition disabled:opacity-40"
+                  >
+                    {downloading ? "Compiling Report..." : "Trigger Download PDF"}
+                  </button>
+                  {dlErr && <p className="text-[12px] text-destructive mt-3">{dlErr}</p>}
+                </div>
+              )}
+
+              {filter !== "source" && filter !== "judge" && filter !== "pdf" && (
+                <>
+                  {visibleFindings.length === 0 ? (
+                    <p className="text-[13px] text-muted-foreground py-8 text-center">
+                      {activeScan.status === "complete" ? "No findings for this filter." : "Agents are actively auditing the repository codebase…"}
+                    </p>
+                  ) : (
+                    <ul className="divide-y hairline">
+                      {visibleFindings.map((f) => <FindingRow key={f.id} f={f} />)}
+                    </ul>
+                  )}
+                </>
               )}
             </div>
           ) : (
