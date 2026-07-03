@@ -596,6 +596,7 @@ export const startScan = createServerFn({ method: "POST" })
       for (const p of AGENT_CONFIG_PATTERNS) {
         const m = txt.match(p.rx);
         if (m) {
+          const isDangerous = /dangerously/i.test(p.name);
           bump(p.sev); summary["agent-config"]++;
           await insertFindings([{
             agent: "agent-config", severity: p.sev,
@@ -604,6 +605,8 @@ export const startScan = createServerFn({ method: "POST" })
             evidence: { file: f.path, snippet: m[0].slice(0, 160) },
             judge_verdict: "confirmed",
             judge_reasoning: "Static pattern in agent framework config; risk is present whenever this code path executes.",
+            compliance_key: isDangerous ? "dangerous_exec" : "_default",
+            policy_violation: isDangerous && policy?.block_dangerous_code_exec ? "dangerous_code_exec" : undefined,
           }]);
           break;
         }
