@@ -4,8 +4,8 @@ import { AuthShell } from "./sign-in";
 export const Route = createFileRoute("/sign-up")({
   head: () => ({
     meta: [
-      { title: "Sign up — Sable" },
-      { name: "description", content: "Create your Sable account." },
+      { title: "Sign up — Ward" },
+      { name: "description", content: "Create your Ward account." },
     ],
   }),
   component: () => <AuthShell mode="signup" />,
