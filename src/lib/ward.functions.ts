@@ -114,6 +114,42 @@ export const getScan = createServerFn({ method: "GET" })
     return { scan, findings: findings ?? [] };
   });
 
+// ---------- Compliance mapping (OWASP LLM Top 10 · NIST AI RMF) ----------
+
+/**
+ * Static, deterministic mapping — no LLM, no external calls.
+ * Sources: OWASP Top 10 for LLM Applications 2025 & NIST AI RMF 1.0.
+ * Every finding gets one row through this map so the PDF + UI can group by
+ * the frameworks CISOs actually procure against.
+ */
+type ComplianceTag = { owasp_llm: string; nist_ai_rmf: string };
+
+const COMPLIANCE_MAP: Record<string, Record<string, ComplianceTag>> = {
+  mcp: {
+    stdio_npx: { owasp_llm: "LLM03", nist_ai_rmf: "MAP-4.1" },        // Supply chain
+    http_transport: { owasp_llm: "LLM02", nist_ai_rmf: "MEASURE-2.6" }, // Sensitive info disclosure
+    install_script: { owasp_llm: "LLM03", nist_ai_rmf: "MAP-4.1" },
+    young_package: { owasp_llm: "LLM03", nist_ai_rmf: "MAP-4.1" },
+    solo_maintainer: { owasp_llm: "LLM03", nist_ai_rmf: "MAP-4.1" },
+    denied_server: { owasp_llm: "LLM03", nist_ai_rmf: "GOVERN-1.1" },
+    not_on_allowlist: { owasp_llm: "LLM03", nist_ai_rmf: "GOVERN-1.1" },
+    unpinned_version: { owasp_llm: "LLM03", nist_ai_rmf: "MAP-4.1" },
+    _default: { owasp_llm: "LLM03", nist_ai_rmf: "MAP-4.1" },
+  },
+  "tool-poison": { _default: { owasp_llm: "LLM01", nist_ai_rmf: "MEASURE-2.7" } },      // Prompt injection
+  "prompt-injection": { _default: { owasp_llm: "LLM01", nist_ai_rmf: "MEASURE-2.7" } },
+  "agent-config": {
+    dangerous_exec: { owasp_llm: "LLM06", nist_ai_rmf: "MANAGE-2.3" }, // Excessive agency
+    _default: { owasp_llm: "LLM06", nist_ai_rmf: "MANAGE-2.3" },
+  },
+  "ai-deps": { _default: { owasp_llm: "LLM03", nist_ai_rmf: "MAP-4.1" } },              // Supply chain
+};
+
+function tagCompliance(agent: string, key: string = "_default"): ComplianceTag {
+  const bucket = COMPLIANCE_MAP[agent] ?? {};
+  return bucket[key] ?? bucket._default ?? { owasp_llm: "LLM10", nist_ai_rmf: "MAP-1.1" };
+}
+
 // ---------- LLM judge ----------
 
 async function llmJson<T>(system: string, user: string): Promise<T | null> {
@@ -285,23 +321,40 @@ export const startScan = createServerFn({ method: "POST" })
     }).select().single();
     if (se || !scan) throw new Error("Failed to create scan");
 
+    // Load org policy (auto-provision defaults on first scan)
+    let { data: policy } = await supabase.from("mcp_policies").select("*").eq("user_id", userId).maybeSingle();
+    if (!policy) {
+      const { data: created } = await supabase.from("mcp_policies").insert({ user_id: userId }).select().single();
+      policy = created;
+    }
+    const allowList = new Set<string>(((policy?.allowed_servers ?? []) as string[]).map((s) => s.toLowerCase()));
+    const denyList = new Set<string>(((policy?.denied_servers ?? []) as string[]).map((s) => s.toLowerCase()));
+
     const summary: Record<string, number> = {
       mcp: 0, "tool-poison": 0, "prompt-injection": 0, "agent-config": 0, "ai-deps": 0,
       critical: 0, high: 0, medium: 0, low: 0, info: 0,
       mcp_servers_found: 0, tool_defs_scanned: 0, prompts_scanned: 0, ai_deps_analyzed: 0,
+      policy_violations: 0,
     };
     const bump = (sev: string) => { summary[sev] = (summary[sev] ?? 0) + 1; };
     const insertFindings = async (rows: Array<{
       agent: string; severity: string; title: string; description?: string;
       evidence?: Record<string, unknown>; judge_verdict?: string; judge_reasoning?: string;
+      compliance_key?: string; policy_violation?: string;
     }>) => {
       if (!rows.length) return;
-      await supabase.from("findings").insert(rows.map((r) => ({
-        scan_id: scan.id, user_id: userId,
-        agent: r.agent, severity: r.severity, title: r.title,
-        description: r.description ?? null, evidence: (r.evidence ?? {}) as never,
-        judge_verdict: r.judge_verdict ?? null, judge_reasoning: r.judge_reasoning ?? null,
-      })));
+      await supabase.from("findings").insert(rows.map((r) => {
+        const tag = tagCompliance(r.agent, r.compliance_key);
+        if (r.policy_violation) summary.policy_violations = (summary.policy_violations ?? 0) + 1;
+        return {
+          scan_id: scan.id, user_id: userId,
+          agent: r.agent, severity: r.severity, title: r.title,
+          description: r.description ?? null, evidence: (r.evidence ?? {}) as never,
+          judge_verdict: r.judge_verdict ?? null, judge_reasoning: r.judge_reasoning ?? null,
+          owasp_llm: tag.owasp_llm, nist_ai_rmf: tag.nist_ai_rmf,
+          policy_violation: r.policy_violation ?? null,
+        };
+      }));
     };
     const setProgress = async (patch: Record<string, string>) => {
       const current = (scan.progress ?? {}) as Record<string, string>;
@@ -334,9 +387,42 @@ export const startScan = createServerFn({ method: "POST" })
     }
     summary.mcp_servers_found = discoveredServers.length;
 
+    const serverKey = (s: McpServer) => (s.package_hint ?? s.url ?? s.name).toLowerCase();
+
     for (const s of discoveredServers) {
+      const key = serverKey(s);
+
+      // Policy: explicit deny-list
+      if (denyList.has(key)) {
+        bump("critical"); summary.mcp++;
+        await insertFindings([{
+          agent: "mcp", severity: "critical",
+          title: `Policy violation — "${s.name}" is on the deny-list`,
+          description: `Your organization's MCP policy explicitly blocks \`${key}\`. This server is configured in ${s.source_file} and must be removed before merge.`,
+          evidence: { source_file: s.source_file, key, policy: "denied_servers" },
+          judge_verdict: "confirmed",
+          judge_reasoning: "Ward policy engine: server matches an entry in the org deny-list.",
+          compliance_key: "denied_server",
+          policy_violation: "denied_server",
+        }]);
+      } else if (allowList.size > 0 && !allowList.has(key)) {
+        // Policy: allow-list mode, and this server isn't on it
+        bump("high"); summary.mcp++;
+        await insertFindings([{
+          agent: "mcp", severity: "high",
+          title: `Policy violation — "${s.name}" is not on the approved MCP allow-list`,
+          description: `Allow-list mode is active. \`${key}\` (${s.source_file}) has not been reviewed and approved by security. Add it to the allow-list or remove the config.`,
+          evidence: { source_file: s.source_file, key, policy: "allowed_servers" },
+          judge_verdict: "confirmed",
+          judge_reasoning: "Ward policy engine: allow-list is non-empty and this server is not a member.",
+          compliance_key: "not_on_allowlist",
+          policy_violation: "not_on_allowlist",
+        }]);
+      }
+
       // RCE-on-connect: stdio via npx/uvx/bunx
       if (s.transport === "stdio" && s.command && /^(npx|bunx|pnpm|uvx)$/.test(s.command)) {
+        const blocked = policy?.block_stdio_npx ?? true;
         bump("high"); summary.mcp++;
         await insertFindings([{
           agent: "mcp", severity: "high",
@@ -345,10 +431,13 @@ export const startScan = createServerFn({ method: "POST" })
           evidence: { source_file: s.source_file, command: s.command, args: s.args ?? [], package: s.package_hint ?? null },
           judge_verdict: "confirmed",
           judge_reasoning: "stdio MCP servers invoked through package runners install-and-execute at connect time; this is the primary MCP supply-chain risk vector.",
+          compliance_key: "stdio_npx",
+          policy_violation: blocked ? "stdio_npx_blocked" : undefined,
         }]);
       }
       // HTTP without TLS
       if (s.url && s.url.startsWith("http://")) {
+        const blocked = policy?.block_http_transport ?? true;
         bump("high"); summary.mcp++;
         await insertFindings([{
           agent: "mcp", severity: "high",
@@ -357,6 +446,8 @@ export const startScan = createServerFn({ method: "POST" })
           evidence: { source_file: s.source_file, url: s.url },
           judge_verdict: "confirmed",
           judge_reasoning: "MCP tool invocations frequently carry secrets in arguments; the transport MUST be TLS.",
+          compliance_key: "http_transport",
+          policy_violation: blocked ? "http_transport_blocked" : undefined,
         }]);
       }
       // npm registry check for the package hint
@@ -372,17 +463,21 @@ export const startScan = createServerFn({ method: "POST" })
               evidence: { server: s.name, package: s.package_hint, latest: nm.latest, install_script: true },
               judge_verdict: "confirmed",
               judge_reasoning: "Install scripts are the historical entry point for crypto-drainer worms in the npm ecosystem.",
+              compliance_key: "install_script",
             }]);
           }
-          if (nm.age_days !== null && nm.age_days < 30) {
+          const minAge = policy?.min_package_age_days ?? 30;
+          if (nm.age_days !== null && nm.age_days < minAge) {
             bump("medium"); summary.mcp++;
             await insertFindings([{
               agent: "mcp", severity: "medium",
-              title: `MCP package "${s.package_hint}" is ${nm.age_days} days old`,
+              title: `MCP package "${s.package_hint}" is ${nm.age_days} days old (policy minimum: ${minAge})`,
               description: `Recently-published packages are the vast majority of malicious-package incidents. Verify authorship before wiring this MCP server into your agent stack.`,
-              evidence: { server: s.name, package: s.package_hint, age_days: nm.age_days, maintainers: nm.maintainer_count },
+              evidence: { server: s.name, package: s.package_hint, age_days: nm.age_days, maintainers: nm.maintainer_count, policy_min_age: minAge },
               judge_verdict: "needs-review",
-              judge_reasoning: "Age-under-30-days is a well-established malicious-package indicator (Socket, Sonatype).",
+              judge_reasoning: "Age-under-policy-minimum is a well-established malicious-package indicator (Socket, Sonatype).",
+              compliance_key: "young_package",
+              policy_violation: "min_package_age",
             }]);
           }
           if (nm.maintainer_count === 1) {
@@ -394,6 +489,7 @@ export const startScan = createServerFn({ method: "POST" })
               evidence: { server: s.name, package: s.package_hint, maintainers: 1 },
               judge_verdict: "likely",
               judge_reasoning: "Solo-maintainer packages have historically been the highest-impact takeover targets (event-stream, ua-parser-js).",
+              compliance_key: "solo_maintainer",
             }]);
           }
         }
@@ -500,6 +596,7 @@ export const startScan = createServerFn({ method: "POST" })
       for (const p of AGENT_CONFIG_PATTERNS) {
         const m = txt.match(p.rx);
         if (m) {
+          const isDangerous = /dangerously/i.test(p.name);
           bump(p.sev); summary["agent-config"]++;
           await insertFindings([{
             agent: "agent-config", severity: p.sev,
@@ -508,6 +605,8 @@ export const startScan = createServerFn({ method: "POST" })
             evidence: { file: f.path, snippet: m[0].slice(0, 160) },
             judge_verdict: "confirmed",
             judge_reasoning: "Static pattern in agent framework config; risk is present whenever this code path executes.",
+            compliance_key: isDangerous ? "dangerous_exec" : "_default",
+            policy_violation: isDangerous && policy?.block_dangerous_code_exec ? "dangerous_code_exec" : undefined,
           }]);
           break;
         }
@@ -692,6 +791,40 @@ export const generateReport = createServerFn({ method: "POST" })
       y -= 4;
     }
 
+    // Compliance mapping — CISO-facing summary
+    newPage();
+    heading("Compliance mapping · OWASP LLM Top 10 & NIST AI RMF");
+    para("Every Ward finding is mapped deterministically to an OWASP LLM Top 10 category and a NIST AI RMF control so this report can slot into existing audit programs.", 10, muted);
+    y -= 6;
+    const owaspBuckets = new Map<string, typeof rows>();
+    for (const r of rows) {
+      const key = (r as { owasp_llm?: string }).owasp_llm ?? "LLM10";
+      if (!owaspBuckets.has(key)) owaspBuckets.set(key, []);
+      owaspBuckets.get(key)!.push(r);
+    }
+    const owaspNames: Record<string, string> = {
+      LLM01: "Prompt Injection",
+      LLM02: "Sensitive Information Disclosure",
+      LLM03: "Supply Chain",
+      LLM06: "Excessive Agency",
+      LLM10: "Unbounded Consumption",
+    };
+    if (!owaspBuckets.size) para("No findings to map.", 10, muted);
+    else {
+      for (const [code, list] of [...owaspBuckets.entries()].sort()) {
+        need(24);
+        text(`${code}  ${owaspNames[code] ?? ""}`, M, 11, bold);
+        text(`${list.length} finding${list.length === 1 ? "" : "s"}`, W - M - 60, 10, mono, muted);
+        y -= 16;
+      }
+      y -= 8;
+      const polV = rows.filter((r) => (r as { policy_violation?: string | null }).policy_violation);
+      if (polV.length) {
+        heading("Policy engine violations");
+        para(`${polV.length} finding${polV.length === 1 ? "" : "s"} violated your org MCP policy (allow/deny-list, transport, package-age, dangerous exec).`, 10, muted);
+      }
+    }
+
     // Attack Surface Map
     newPage();
     heading("Attack surface map · MCP servers discovered");
@@ -805,4 +938,106 @@ export const generateReport = createServerFn({ method: "POST" })
     }
     const b64 = btoa(bin);
     return { filename: `ward-${scan.repo_full_name.replace(/\//g, "-")}-${scan.id.slice(0, 8)}.pdf`, base64: b64 };
+  });
+
+// ---------- Policy engine ----------
+
+export const getPolicy = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data } = await context.supabase.from("mcp_policies").select("*").eq("user_id", context.userId).maybeSingle();
+    if (data) return data;
+    const { data: created } = await context.supabase.from("mcp_policies").insert({ user_id: context.userId }).select().single();
+    return created;
+  });
+
+export const updatePolicy = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({
+    allowed_servers: z.array(z.string().trim().min(1)).max(500).optional(),
+    denied_servers: z.array(z.string().trim().min(1)).max(500).optional(),
+    block_stdio_npx: z.boolean().optional(),
+    block_http_transport: z.boolean().optional(),
+    require_pinned_versions: z.boolean().optional(),
+    block_dangerous_code_exec: z.boolean().optional(),
+    min_package_age_days: z.number().int().min(0).max(365).optional(),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: existing } = await context.supabase.from("mcp_policies").select("id").eq("user_id", context.userId).maybeSingle();
+    if (!existing) {
+      const { data: created, error } = await context.supabase.from("mcp_policies").insert({ user_id: context.userId, ...data }).select().single();
+      if (error) throw new Error(error.message);
+      return created;
+    }
+    const { data: updated, error } = await context.supabase.from("mcp_policies").update(data).eq("user_id", context.userId).select().single();
+    if (error) throw new Error(error.message);
+    return updated;
+  });
+
+// ---------- Watched repos ----------
+
+export const listWatchedRepos = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("watched_repos")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
+
+export const watchRepo = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({
+    repo_full_name: z.string().min(3),
+    repo_url: z.string().url(),
+    cadence_hours: z.number().int().min(1).max(24 * 30).default(24),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: row, error } = await context.supabase
+      .from("watched_repos")
+      .upsert(
+        { user_id: context.userId, ...data, enabled: true, updated_at: new Date().toISOString() },
+        { onConflict: "user_id,repo_full_name" },
+      )
+      .select().single();
+    if (error) throw new Error(error.message);
+    return row;
+  });
+
+export const unwatchRepo = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.from("watched_repos").delete().eq("id", data.id).eq("user_id", context.userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/**
+ * Which watched repos are due for a rescan? Client polls this and, for any
+ * returned entry, calls startScan and then markScanned. Keeps the whole loop
+ * inside authenticated server functions (no cron secret needed).
+ */
+export const listDueRescans = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data } = await context.supabase.from("watched_repos").select("*").eq("enabled", true);
+    const now = Date.now();
+    return (data ?? []).filter((w) => {
+      if (!w.last_scanned_at) return true;
+      const elapsedH = (now - new Date(w.last_scanned_at).getTime()) / 3_600_000;
+      return elapsedH >= (w.cadence_hours ?? 24);
+    });
+  });
+
+export const markWatchedScanned = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid(), scan_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await context.supabase.from("watched_repos")
+      .update({ last_scanned_at: new Date().toISOString(), last_scan_id: data.scan_id })
+      .eq("id", data.id).eq("user_id", context.userId);
+    return { ok: true };
   });

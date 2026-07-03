@@ -23,6 +23,9 @@ export type Database = {
           id: string
           judge_reasoning: string | null
           judge_verdict: string | null
+          nist_ai_rmf: string | null
+          owasp_llm: string | null
+          policy_violation: string | null
           scan_id: string
           severity: string
           title: string
@@ -36,6 +39,9 @@ export type Database = {
           id?: string
           judge_reasoning?: string | null
           judge_verdict?: string | null
+          nist_ai_rmf?: string | null
+          owasp_llm?: string | null
+          policy_violation?: string | null
           scan_id: string
           severity: string
           title: string
@@ -49,6 +55,9 @@ export type Database = {
           id?: string
           judge_reasoning?: string | null
           judge_verdict?: string | null
+          nist_ai_rmf?: string | null
+          owasp_llm?: string | null
+          policy_violation?: string | null
           scan_id?: string
           severity?: string
           title?: string
@@ -94,6 +103,48 @@ export type Database = {
         }
         Relationships: []
       }
+      mcp_policies: {
+        Row: {
+          allowed_servers: Json
+          block_dangerous_code_exec: boolean
+          block_http_transport: boolean
+          block_stdio_npx: boolean
+          created_at: string
+          denied_servers: Json
+          id: string
+          min_package_age_days: number
+          require_pinned_versions: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          allowed_servers?: Json
+          block_dangerous_code_exec?: boolean
+          block_http_transport?: boolean
+          block_stdio_npx?: boolean
+          created_at?: string
+          denied_servers?: Json
+          id?: string
+          min_package_age_days?: number
+          require_pinned_versions?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          allowed_servers?: Json
+          block_dangerous_code_exec?: boolean
+          block_http_transport?: boolean
+          block_stdio_npx?: boolean
+          created_at?: string
+          denied_servers?: Json
+          id?: string
+          min_package_age_days?: number
+          require_pinned_versions?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       scans: {
         Row: {
           completed_at: string | null
@@ -132,6 +183,45 @@ export type Database = {
           started_at?: string
           status?: string
           summary?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
+      watched_repos: {
+        Row: {
+          cadence_hours: number
+          created_at: string
+          enabled: boolean
+          id: string
+          last_scan_id: string | null
+          last_scanned_at: string | null
+          repo_full_name: string
+          repo_url: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cadence_hours?: number
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_scan_id?: string | null
+          last_scanned_at?: string | null
+          repo_full_name: string
+          repo_url: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cadence_hours?: number
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_scan_id?: string | null
+          last_scanned_at?: string | null
+          repo_full_name?: string
+          repo_url?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
