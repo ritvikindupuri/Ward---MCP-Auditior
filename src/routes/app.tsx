@@ -956,6 +956,76 @@ function getRemediationAdvice(agent: string, title: string) {
   return "Review the policy requirements in the policy editor page. Block unverified third-party libraries and verify execution commands manually before starting scans.";
 }
 
+function FormattedJudgeReasoning({ text }: { text: string }) {
+  if (!text) return null;
+
+  let displayHtml = text;
+  if (text.includes("Static pattern in agent framework config")) {
+    displayHtml = `**Threat Analysis:**
+* The execution library configuration allows the LLM to run system commands directly.
+* Prompt injections in user input can exploit this path to read/write files or infect environment variables.
+
+**Remediation Guidelines:**
+* Disable this flag unless absolutely necessary.
+* Enforce sandboxing (e.g. gVisor or isolated Docker containers) for code execution.
+* Add user-in-the-loop manual approval gates.`;
+  } else if (text.includes("Tool descriptions are read by the model")) {
+    displayHtml = `**Threat Analysis:**
+* Tool descriptions are treated as trusted system text by LLMs.
+* Attackers can smuggle commands inside descriptions, hijacking agent behaviors.
+
+**Remediation Guidelines:**
+* Sanitize description strings to remove formatting tags or imperative verbs.
+* Lock down schemas to allow only expected primitive types.`;
+  }
+
+  const lines = displayHtml.split("\n");
+  return (
+    <div className="space-y-3 mt-1.5 text-[13px] text-white/90 leading-[1.6]">
+      {lines.map((line, idx) => {
+        const trimmed = line.trim();
+        if (!trimmed) return null;
+
+        if (trimmed.startsWith("**") && trimmed.endsWith("**")) {
+          const content = trimmed.replace(/\*\*/g, "");
+          return (
+            <h4 key={idx} className="text-[12px] font-bold text-emerald-400 uppercase tracking-wider mt-3 mb-1">
+              {content}
+            </h4>
+          );
+        }
+        if (trimmed.startsWith("**") && trimmed.includes(":**")) {
+          const parts = trimmed.split(":**");
+          const header = parts[0].replace(/\*\*/g, "");
+          const body = parts.slice(1).join(":**").trim();
+          return (
+            <div key={idx} className="mt-2">
+              <span className="text-[11.5px] font-bold text-emerald-400 uppercase tracking-wider mr-1.5">{header}:</span>
+              <span className="text-[13px] text-white/90">{body}</span>
+            </div>
+          );
+        }
+
+        if (trimmed.startsWith("*") || trimmed.startsWith("-")) {
+          const content = trimmed.substring(1).trim();
+          return (
+            <div key={idx} className="flex items-start gap-2 pl-2 my-1">
+              <span className="text-emerald-400 text-[14px] leading-none select-none mt-0.5">•</span>
+              <span className="text-[13px] text-muted-foreground leading-normal">{content}</span>
+            </div>
+          );
+        }
+
+        return (
+          <p key={idx} className="text-[13px] text-white/90 leading-normal">
+            {trimmed}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
 function FindingRow({ f }: { f: Awaited<ReturnType<typeof getScan>>["findings"][number] }) {
   const [open, setOpen] = useState(false);
   const c = f.severity === "critical" ? "text-red-400 bg-red-500/10 border-red-500/20"
@@ -995,7 +1065,7 @@ function FindingRow({ f }: { f: Awaited<ReturnType<typeof getScan>>["findings"][
           {f.judge_reasoning && (
             <div>
               <div className="text-[9px] font-mono uppercase tracking-[0.2em] text-emerald-400 font-semibold mb-1">Judge Verdict · {f.judge_verdict ?? "CONFIRMED"}</div>
-              <div className="text-[13px] text-white/90 leading-[1.6]">{f.judge_reasoning}</div>
+              <FormattedJudgeReasoning text={f.judge_reasoning} />
             </div>
           )}
           
