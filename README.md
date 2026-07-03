@@ -44,7 +44,7 @@ graph TD
 
 ---
 
-## Flow by Flow Explanation Detailed
+## Execution Workflow
 
 The auditing execution flow runs in a sequence of automated stages:
 
@@ -71,7 +71,7 @@ The auditing execution flow runs in a sequence of automated stages:
 
 ---
 
-## Detailed Setup Steps
+## Setup Guide
 
 ### 1. Clone the Repository
 ```bash
