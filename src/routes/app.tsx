@@ -661,48 +661,83 @@ function SummaryCards({ summary }: { summary: Record<string, number> }) {
   );
 }
 
+function getRemediationAdvice(agent: string, title: string) {
+  const t = title.toLowerCase();
+  const a = agent.toLowerCase();
+  if (t.includes("dangerously_allow_code_execution") || t.includes("dangerouslyallowcodeexecution")) {
+    return "Disable dangerouslyAllowCodeExecution in your agent framework configuration. If code execution is required, ensure it runs in a sandboxed, isolated environment (e.g. Docker or a secure gVisor sandbox) rather than on the host system, and always implement a manual approval gate before execution.";
+  }
+  if (a === "mcp") {
+    return "Avoid running unverified third-party MCP servers using command launchers like npx or uvx on connection. Enforce HTTPS/WSS transport instead of plaintext HTTP, pin dependencies in lock files, and restrict host file system access using fine-grained server properties.";
+  }
+  if (a === "tool-poison") {
+    return "Audit and sanitize all schemas in your tool declarations. Strip hidden directives, role-override patterns, and zero-width spaces. Run inputs through safety classifiers before passing them to prompt generation models.";
+  }
+  if (a === "prompt-injection") {
+    return "Isolate untrusted user inputs from system instructions using structural delimiter schemas (e.g. XML tags or JSON boundaries). Implement input sanitizers and safety models (such as Llama Guard) to filter hijacking attempts.";
+  }
+  if (a === "ai-deps" || t.includes("cve") || t.includes("dependency")) {
+    return "Upgrade the vulnerable packages (such as langchain, openai, or anthropic) to the latest secure version. If patches are unavailable, configure input validation middleware or pin to the last known safe version.";
+  }
+  return "Review the policy requirements in the policy editor page. Block unverified third-party libraries and verify execution commands manually before starting scans.";
+}
+
 function FindingRow({ f }: { f: Awaited<ReturnType<typeof getScan>>["findings"][number] }) {
   const [open, setOpen] = useState(false);
-  const c = f.severity === "critical" ? "text-red-400 bg-red-500/10"
-    : f.severity === "high" ? "text-orange-400 bg-orange-500/10"
-    : f.severity === "medium" ? "text-yellow-500 bg-yellow-500/10"
-    : f.severity === "low" ? "text-blue-400 bg-blue-500/10"
-    : "text-muted-foreground bg-muted/30";
+  const c = f.severity === "critical" ? "text-red-400 bg-red-500/10 border-red-500/20"
+    : f.severity === "high" ? "text-orange-400 bg-orange-500/10 border-orange-500/20"
+    : f.severity === "medium" ? "text-yellow-500 bg-yellow-500/10 border-yellow-500/20"
+    : f.severity === "low" ? "text-blue-400 bg-blue-500/10 border-blue-500/20"
+    : "text-muted-foreground bg-muted/30 border-white/5";
   const owasp = (f as { owasp_llm?: string | null }).owasp_llm;
   const nist = (f as { nist_ai_rmf?: string | null }).nist_ai_rmf;
   const pv = (f as { policy_violation?: string | null }).policy_violation;
+  
+  const remediation = getRemediationAdvice(f.agent, f.title);
+
   return (
-    <li className="py-3">
-      <div className="flex items-start gap-3 cursor-pointer" onClick={() => setOpen((v) => !v)}>
-        <span className={`text-[9.5px] px-1.5 py-0.5 rounded font-semibold tracking-wider ${c} mt-0.5`}>{f.severity.toUpperCase()}</span>
-        <span className="text-[10.5px] font-mono text-muted-foreground w-16 mt-1">[{f.agent.toUpperCase()}]</span>
+    <li className="mb-4 p-4.5 rounded-xl border border-white/5 bg-white/[0.01] hover:bg-white/[0.02] hover:border-white/10 transition-all">
+      <div className="flex items-start gap-4 cursor-pointer" onClick={() => setOpen((v) => !v)}>
+        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border shrink-0 mt-0.5 ${c}`}>
+          {f.severity}
+        </span>
+        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/5 border border-white/5 text-muted-foreground uppercase shrink-0 mt-0.5">
+          {f.agent}
+        </span>
         <div className="flex-1 min-w-0">
-          <div className="text-[13px] truncate">{f.title}</div>
-          {f.description && <div className="text-[11.5px] text-muted-foreground truncate">{f.description}</div>}
-          <div className="flex flex-wrap gap-1 mt-1.5">
-            {owasp && <span className="text-[9.5px] px-1.5 py-0.5 rounded font-mono bg-purple-500/10 text-purple-300">OWASP {owasp}</span>}
-            {nist && <span className="text-[9.5px] px-1.5 py-0.5 rounded font-mono bg-cyan-500/10 text-cyan-300">NIST {nist}</span>}
-            {pv && <span className="text-[9.5px] px-1.5 py-0.5 rounded font-mono bg-red-500/15 text-red-300">POLICY: {pv}</span>}
+          <div className="text-[14.5px] font-bold text-white tracking-tight leading-normal truncate">{f.title}</div>
+          {f.description && <div className="text-[13px] text-muted-foreground mt-1 leading-normal">{f.description}</div>}
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {owasp && <span className="text-[10px] px-2 py-0.5 rounded-full font-mono bg-purple-500/10 text-purple-300 border border-purple-500/20">OWASP {owasp}</span>}
+            {nist && <span className="text-[10px] px-2 py-0.5 rounded-full font-mono bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">NIST {nist}</span>}
+            {pv && <span className="text-[10px] px-2 py-0.5 rounded-full font-mono bg-red-500/15 text-red-300 border border-red-500/25">POLICY: {pv}</span>}
           </div>
         </div>
-        <span className="text-muted-foreground text-[11px]">{open ? "▾" : "›"}</span>
+        <span className="text-muted-foreground/60 hover:text-white text-[14px] px-1 shrink-0 select-none transition-colors">{open ? "▾" : "▸"}</span>
       </div>
+      
       {open && (
-        <div className="mt-3 ml-24 space-y-2 text-[12px]">
+        <div className="mt-4 pt-4 border-t border-white/5 space-y-4 text-[13px] animate-slide-down">
           {f.judge_reasoning && (
             <div>
-              <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-0.5">Judge · {f.judge_verdict ?? "—"}</div>
-              <div className="text-[12.5px]">{f.judge_reasoning}</div>
+              <div className="text-[9px] font-mono uppercase tracking-[0.2em] text-emerald-400 font-semibold mb-1">Judge Verdict · {f.judge_verdict ?? "CONFIRMED"}</div>
+              <div className="text-[13px] text-white/90 leading-[1.6]">{f.judge_reasoning}</div>
             </div>
           )}
+          
           {f.evidence && Object.keys(f.evidence as object).length > 0 && (
             <div>
-              <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-0.5">Evidence</div>
-              <pre className="text-[11px] font-mono bg-surface-2 rounded-md p-3 overflow-x-auto">
+              <div className="text-[9px] font-mono uppercase tracking-[0.2em] text-muted-foreground font-semibold mb-1">Evidence</div>
+              <pre className="text-[11.5px] font-mono bg-black/40 border border-white/5 rounded-lg p-3 text-muted-foreground overflow-x-auto whitespace-pre-wrap break-all">
                 {JSON.stringify(f.evidence, null, 2)}
               </pre>
             </div>
           )}
+
+          <div className="p-3.5 rounded-lg bg-emerald-500/5 border border-emerald-500/10 font-mono text-[11.5px] leading-[1.5]">
+            <span className="text-white font-semibold block mb-0.5 font-sans text-[13px] tracking-tight">Security Remediation:</span>
+            <span className="text-muted-foreground">{remediation}</span>
+          </div>
         </div>
       )}
     </li>
