@@ -387,9 +387,42 @@ export const startScan = createServerFn({ method: "POST" })
     }
     summary.mcp_servers_found = discoveredServers.length;
 
+    const serverKey = (s: McpServer) => (s.package_hint ?? s.url ?? s.name).toLowerCase();
+
     for (const s of discoveredServers) {
+      const key = serverKey(s);
+
+      // Policy: explicit deny-list
+      if (denyList.has(key)) {
+        bump("critical"); summary.mcp++;
+        await insertFindings([{
+          agent: "mcp", severity: "critical",
+          title: `Policy violation — "${s.name}" is on the deny-list`,
+          description: `Your organization's MCP policy explicitly blocks \`${key}\`. This server is configured in ${s.source_file} and must be removed before merge.`,
+          evidence: { source_file: s.source_file, key, policy: "denied_servers" },
+          judge_verdict: "confirmed",
+          judge_reasoning: "Ward policy engine: server matches an entry in the org deny-list.",
+          compliance_key: "denied_server",
+          policy_violation: "denied_server",
+        }]);
+      } else if (allowList.size > 0 && !allowList.has(key)) {
+        // Policy: allow-list mode, and this server isn't on it
+        bump("high"); summary.mcp++;
+        await insertFindings([{
+          agent: "mcp", severity: "high",
+          title: `Policy violation — "${s.name}" is not on the approved MCP allow-list`,
+          description: `Allow-list mode is active. \`${key}\` (${s.source_file}) has not been reviewed and approved by security. Add it to the allow-list or remove the config.`,
+          evidence: { source_file: s.source_file, key, policy: "allowed_servers" },
+          judge_verdict: "confirmed",
+          judge_reasoning: "Ward policy engine: allow-list is non-empty and this server is not a member.",
+          compliance_key: "not_on_allowlist",
+          policy_violation: "not_on_allowlist",
+        }]);
+      }
+
       // RCE-on-connect: stdio via npx/uvx/bunx
       if (s.transport === "stdio" && s.command && /^(npx|bunx|pnpm|uvx)$/.test(s.command)) {
+        const blocked = policy?.block_stdio_npx ?? true;
         bump("high"); summary.mcp++;
         await insertFindings([{
           agent: "mcp", severity: "high",
@@ -398,10 +431,13 @@ export const startScan = createServerFn({ method: "POST" })
           evidence: { source_file: s.source_file, command: s.command, args: s.args ?? [], package: s.package_hint ?? null },
           judge_verdict: "confirmed",
           judge_reasoning: "stdio MCP servers invoked through package runners install-and-execute at connect time; this is the primary MCP supply-chain risk vector.",
+          compliance_key: "stdio_npx",
+          policy_violation: blocked ? "stdio_npx_blocked" : undefined,
         }]);
       }
       // HTTP without TLS
       if (s.url && s.url.startsWith("http://")) {
+        const blocked = policy?.block_http_transport ?? true;
         bump("high"); summary.mcp++;
         await insertFindings([{
           agent: "mcp", severity: "high",
@@ -410,6 +446,8 @@ export const startScan = createServerFn({ method: "POST" })
           evidence: { source_file: s.source_file, url: s.url },
           judge_verdict: "confirmed",
           judge_reasoning: "MCP tool invocations frequently carry secrets in arguments; the transport MUST be TLS.",
+          compliance_key: "http_transport",
+          policy_violation: blocked ? "http_transport_blocked" : undefined,
         }]);
       }
       // npm registry check for the package hint
