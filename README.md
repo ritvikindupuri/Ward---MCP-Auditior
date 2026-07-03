@@ -21,24 +21,28 @@ For details on database schemas and system integrations, see the [Technical Docu
 
 ## System Architecture
 
-```mermaid
-graph TD
-    A[Github Repository] --> B[Repository Parser]
-    B --> C[Agent 1: MCP Server Registry check]
-    B --> D[Agent 2: Tool Poisoning Detector]
-    B --> E[Agent 3: Local AI Prompt Auditor]
-    B --> F[Agent 4: Framework Config Auditor]
-    B --> G[Agent 5: Dependency CVE check]
+flowchart TD
+    A[GitHub Repository]:::database --> B[Repository Parser]:::default
+    B --> C[Agent 1: MCP Server Registry Check]:::highlight
+    B --> D[Agent 2: Tool Poisoning Detector]:::highlight
+    B --> E[Agent 3: Local AI Prompt Auditor]:::highlight
+    B --> F[Agent 4: Framework Config Auditor]:::highlight
+    B --> G[Agent 5: Dependency CVE Check]:::highlight
     
-    C --> H[npm registry API]
-    G --> I[OSV Database]
-    E --> J[Local Ollama API: Llama Guard 3]
+    C --> H[npm Registry API]:::api
+    G --> I[OSV Database]:::api
+    E --> J[Local Ollama API: Llama Guard 3]:::api
     
-    C & D & E & F & G --> K[Compliance Engine]
-    K --> L[OWASP Top 10 for LLMs]
-    K --> M[NIST AI RMF]
+    C & D & E & F & G --> K[Compliance Engine]:::default
+    K --> L[OWASP Top 10 for LLMs]:::default
+    K --> M[NIST AI RMF]:::default
     
-    K --> N[Scan Results Card & Supabase DB]
+    K --> N[Scan Results Card & Supabase DB]:::database
+
+    classDef default fill:#171717,stroke:#262626,stroke-width:1px,color:#d4d4d4;
+    classDef highlight fill:#022c22,stroke:#059669,stroke-width:1.5px,color:#34d399;
+    classDef api fill:#1e1b4b,stroke:#4f46e5,stroke-width:1px,color:#c7d2fe;
+    classDef database fill:#0c0a09,stroke:#78716c,stroke-width:1px,color:#e7e5e4;
 ```
 <p align="center">Figure 1: Ward Compliance System Architecture</p>
 

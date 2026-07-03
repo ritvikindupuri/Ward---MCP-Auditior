@@ -30,26 +30,25 @@ Ward is designed to provide security teams with a privacy-first, local complianc
 
 Ward operates as a client-server web application using a local-first analysis model. The React-based frontend communicates with background agents to orchestrate checks, fetch repository trees, and query registry APIs.
 
-```mermaid
-graph TD
+flowchart TD
     subgraph Browser Context
-        Client[React 19 Frontend]
-        Router[TanStack Router / Start]
+        Client[React 19 Frontend]:::default
+        Router[TanStack Router / Start]:::default
         Client <--> Router
     end
     
     subgraph Local User Machine
-        Ollama[Ollama Engine]
+        Ollama[Ollama Engine]:::highlight
     end
     
     subgraph Cloud Infrastructure
-        DB[(Supabase PostgreSQL)]
+        DB[Supabase PostgreSQL]:::database
     end
     
     subgraph Remote Services
-        GitHub[GitHub REST API]
-        npm[npm Registry API]
-        OSV[OSV Database API]
+        GitHub[GitHub REST API]:::api
+        npm[npm Registry API]:::api
+        OSV[OSV Database API]:::api
     end
     
     Router <--> DB
@@ -57,6 +56,11 @@ graph TD
     Router <--> Ollama
     Router <--> npm
     Router <--> OSV
+
+    classDef default fill:#171717,stroke:#262626,stroke-width:1px,color:#d4d4d4;
+    classDef highlight fill:#022c22,stroke:#059669,stroke-width:1.5px,color:#34d399;
+    classDef api fill:#1e1b4b,stroke:#4f46e5,stroke-width:1px,color:#c7d2fe;
+    classDef database fill:#0c0a09,stroke:#78716c,stroke-width:1px,color:#e7e5e4;
 ```
 <p align="center">Figure 1: Ward System Integration and Client-Server Boundary Architecture</p>
 
@@ -71,27 +75,31 @@ The System Architecture divides operations into three primary boundaries:
 
 When an audit is triggered, Ward dispatches a pipeline of five specialized, parallel security agents that parse the repository and feed raw signals into a centralized Compliance Engine.
 
-```mermaid
-graph TD
-    Repo[GitHub Repository Tree] --> Parser[Manifest & Source Parser]
+flowchart TD
+    Repo[GitHub Repository Tree]:::database --> Parser[Manifest & Source Parser]:::default
     
     subgraph Parallel Security Agent Stack
-        A1[Agent 1: MCP Server Scanner]
-        A2[Agent 2: Tool Poisoning Detector]
-        A3[Agent 3: Local AI Prompt Auditor]
-        A4[Agent 4: Orchestrator Config Auditor]
-        A5[Agent 5: AI-stack CVE Checker]
+        A1[Agent 1: MCP Server Scanner]:::highlight
+        A2[Agent 2: Tool Poisoning Detector]:::highlight
+        A3[Agent 3: Local AI Prompt Auditor]:::highlight
+        A4[Agent 4: Orchestrator Config Auditor]:::highlight
+        A5[Agent 5: AI-stack CVE Checker]:::highlight
     end
     
     Parser --> A1 & A2 & A3 & A4 & A5
     
-    A1 --> npm[npm registry API]
-    A3 --> Ollama[Local Ollama Inference]
-    A5 --> OSV[OSV Database API]
+    A1 --> npm[npm Registry API]:::api
+    A3 --> Ollama[Local Ollama Inference]:::api
+    A5 --> OSV[OSV Database API]:::api
     
-    A1 & A2 & A3 & A4 & A5 --> Comp[Compliance Tagging Engine]
-    Comp --> Judge[Local LLM Judge Verdicts]
-    Judge --> Report[PDF Compiler & Supabase Commit]
+    A1 & A2 & A3 & A4 & A5 --> Comp[Compliance Tagging Engine]:::default
+    Comp --> Judge[Local LLM Judge Verdicts]:::default
+    Judge --> Report[PDF Compiler & Supabase Commit]:::database
+
+    classDef default fill:#171717,stroke:#262626,stroke-width:1px,color:#d4d4d4;
+    classDef highlight fill:#022c22,stroke:#059669,stroke-width:1.5px,color:#34d399;
+    classDef api fill:#1e1b4b,stroke:#4f46e5,stroke-width:1px,color:#c7d2fe;
+    classDef database fill:#0c0a09,stroke:#78716c,stroke-width:1px,color:#e7e5e4;
 ```
 <p align="center">Figure 2: Multi-Agent Analysis and Compliance Evaluation Pipeline</p>
 
