@@ -542,6 +542,9 @@ function FindingRow({ f }: { f: Awaited<ReturnType<typeof getScan>>["findings"][
     : f.severity === "medium" ? "text-yellow-500 bg-yellow-500/10"
     : f.severity === "low" ? "text-blue-400 bg-blue-500/10"
     : "text-muted-foreground bg-muted/30";
+  const owasp = (f as { owasp_llm?: string | null }).owasp_llm;
+  const nist = (f as { nist_ai_rmf?: string | null }).nist_ai_rmf;
+  const pv = (f as { policy_violation?: string | null }).policy_violation;
   return (
     <li className="py-3">
       <div className="flex items-start gap-3 cursor-pointer" onClick={() => setOpen((v) => !v)}>
@@ -550,6 +553,11 @@ function FindingRow({ f }: { f: Awaited<ReturnType<typeof getScan>>["findings"][
         <div className="flex-1 min-w-0">
           <div className="text-[13px] truncate">{f.title}</div>
           {f.description && <div className="text-[11.5px] text-muted-foreground truncate">{f.description}</div>}
+          <div className="flex flex-wrap gap-1 mt-1.5">
+            {owasp && <span className="text-[9.5px] px-1.5 py-0.5 rounded font-mono bg-purple-500/10 text-purple-300">OWASP {owasp}</span>}
+            {nist && <span className="text-[9.5px] px-1.5 py-0.5 rounded font-mono bg-cyan-500/10 text-cyan-300">NIST {nist}</span>}
+            {pv && <span className="text-[9.5px] px-1.5 py-0.5 rounded font-mono bg-red-500/15 text-red-300">POLICY: {pv}</span>}
+          </div>
         </div>
         <span className="text-muted-foreground text-[11px]">{open ? "▾" : "›"}</span>
       </div>
