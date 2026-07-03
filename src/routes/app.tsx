@@ -599,8 +599,17 @@ function PolicyView() {
     }
   }, [policy.data]);
 
+  type PolicyPatch = {
+    allowed_servers?: string[];
+    denied_servers?: string[];
+    block_stdio_npx?: boolean;
+    block_http_transport?: boolean;
+    require_pinned_versions?: boolean;
+    block_dangerous_code_exec?: boolean;
+    min_package_age_days?: number;
+  };
   const save = useMutation({
-    mutationFn: (patch: Parameters<typeof updatePolicy>[0]["data"]) => updatePolicy({ data: patch }),
+    mutationFn: (patch: PolicyPatch) => updatePolicy({ data: patch }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["policy"] }); setSaved(true); setTimeout(() => setSaved(false), 1600); },
   });
 
