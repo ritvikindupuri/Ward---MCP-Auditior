@@ -791,6 +791,40 @@ export const generateReport = createServerFn({ method: "POST" })
       y -= 4;
     }
 
+    // Compliance mapping — CISO-facing summary
+    newPage();
+    heading("Compliance mapping · OWASP LLM Top 10 & NIST AI RMF");
+    para("Every Ward finding is mapped deterministically to an OWASP LLM Top 10 category and a NIST AI RMF control so this report can slot into existing audit programs.", 10, muted);
+    y -= 6;
+    const owaspBuckets = new Map<string, typeof rows>();
+    for (const r of rows) {
+      const key = (r as { owasp_llm?: string }).owasp_llm ?? "LLM10";
+      if (!owaspBuckets.has(key)) owaspBuckets.set(key, []);
+      owaspBuckets.get(key)!.push(r);
+    }
+    const owaspNames: Record<string, string> = {
+      LLM01: "Prompt Injection",
+      LLM02: "Sensitive Information Disclosure",
+      LLM03: "Supply Chain",
+      LLM06: "Excessive Agency",
+      LLM10: "Unbounded Consumption",
+    };
+    if (!owaspBuckets.size) para("No findings to map.", 10, muted);
+    else {
+      for (const [code, list] of [...owaspBuckets.entries()].sort()) {
+        need(24);
+        text(`${code}  ${owaspNames[code] ?? ""}`, M, 11, bold);
+        text(`${list.length} finding${list.length === 1 ? "" : "s"}`, W - M - 60, 10, mono, muted);
+        y -= 16;
+      }
+      y -= 8;
+      const polV = rows.filter((r) => (r as { policy_violation?: string | null }).policy_violation);
+      if (polV.length) {
+        heading("Policy engine violations");
+        para(`${polV.length} finding${polV.length === 1 ? "" : "s"} violated your org MCP policy (allow/deny-list, transport, package-age, dangerous exec).`, 10, muted);
+      }
+    }
+
     // Attack Surface Map
     newPage();
     heading("Attack surface map · MCP servers discovered");
