@@ -12,13 +12,13 @@ import {
   listScans,
   saveGithubPat,
   startScan,
-} from "@/lib/sable.functions";
+} from "@/lib/ward.functions";
 
 export const Route = createFileRoute("/app")({
   head: () => ({
     meta: [
-      { title: "Console — Sable" },
-      { name: "description", content: "Run supply-chain scans across your GitHub repositories." },
+      { title: "Console — Ward" },
+      { name: "description", content: "Run MCP & AI-agent supply-chain scans across your GitHub repositories." },
     ],
   }),
   component: Console,
@@ -57,7 +57,7 @@ function Sidebar({ email }: { email: string | null }) {
     <aside className="border-r hairline h-screen sticky top-0 p-5 flex flex-col">
       <Link to="/" className="flex items-center gap-2.5 mb-8">
         <Mark size={22} />
-        <span className="text-[15px] font-medium tracking-tight">Sable</span>
+        <span className="text-[15px] font-medium tracking-tight">Ward</span>
       </Link>
       <nav className="space-y-1 text-[13px]">
         <div className="px-2.5 py-1.5 rounded-md bg-surface-2 text-foreground">Scans</div>
@@ -162,7 +162,7 @@ function ConnectPanel({ onOpen }: { onOpen: () => void }) {
       <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground mb-3">Step 1</div>
       <h2 className="text-[22px] font-semibold tracking-tight mb-2">Connect your GitHub account</h2>
       <p className="text-[13.5px] text-muted-foreground max-w-lg leading-[1.6]">
-        Sable uses a GitHub fine-grained personal access token with read-only repository access.
+        Ward uses a GitHub fine-grained personal access token with read-only repository access.
         Nothing is written back to your account.
       </p>
       <button onClick={onOpen} className="mt-6 h-10 px-5 rounded-full bg-foreground text-background text-[13px] font-medium hover:opacity-90 transition">
@@ -320,10 +320,11 @@ function LiveScansPanel({ scans, onOpen }: { scans: ScanListItem[]; onOpen: (id:
 function LiveScanRow({ scan, onOpen }: { scan: ScanListItem; onOpen: () => void }) {
   const progress = (scan.progress ?? {}) as Record<string, string>;
   const agents: Array<{ k: string; label: string; hint: string }> = [
-    { k: "deps",    label: "Vulnera", hint: "OSV.dev" },
-    { k: "secrets", label: "Sift",    hint: "secrets" },
-    { k: "supply",  label: "Lineage", hint: "supply" },
-    { k: "osint",   label: "Signal",  hint: "OSINT" },
+    { k: "mcp",              label: "MCP",       hint: "servers" },
+    { k: "tool-poison",      label: "Poison",    hint: "tool defs" },
+    { k: "prompt-injection", label: "Prompt-Inj",hint: "prompts" },
+    { k: "agent-config",     label: "Config",    hint: "frameworks" },
+    { k: "ai-deps",          label: "AI-CVEs",   hint: "OSV.dev" },
   ];
   const done = agents.filter((a) => progress[a.k] === "done").length;
   const pct = Math.round((done / agents.length) * 100);
@@ -345,7 +346,7 @@ function LiveScanRow({ scan, onOpen }: { scan: ScanListItem; onOpen: () => void 
           style={{ width: `${pct}%` }}
         />
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
         {agents.map((a) => {
           const st = progress[a.k] ?? "queued";
           const dotC = st === "done" ? "bg-primary" : st === "running" ? "bg-yellow-400 animate-pulse" : "bg-muted-foreground/40";
@@ -422,8 +423,8 @@ function ScanDetail({ id, onClose }: { id: string; onClose: () => void }) {
           </div>
 
           {scan.status === "running" && (
-            <div className="grid grid-cols-4 gap-2 mb-6">
-              {(["deps", "secrets", "supply", "osint"] as const).map((k) => {
+            <div className="grid grid-cols-3 md:grid-cols-5 gap-2 mb-6">
+              {(["mcp", "tool-poison", "prompt-injection", "agent-config", "ai-deps"] as const).map((k) => {
                 const st = (scan.progress as Record<string, string>)?.[k] ?? "queued";
                 return (
                   <div key={k} className="rounded-lg hairline border p-3">
@@ -440,8 +441,8 @@ function ScanDetail({ id, onClose }: { id: string; onClose: () => void }) {
 
           <SummaryCards summary={(scan.summary ?? {}) as Record<string, number>} />
 
-          <div className="flex items-center gap-1 mb-3 text-[12px]">
-            {(["all", "deps", "secrets", "supply", "osint"] as const).map((k) => {
+          <div className="flex flex-wrap items-center gap-1 mb-3 text-[12px]">
+            {(["all", "mcp", "tool-poison", "prompt-injection", "agent-config", "ai-deps"] as const).map((k) => {
               const n = k === "all" ? findings.length : findings.filter((f) => f.agent === k).length;
               return (
                 <button key={k} onClick={() => setFilter(k)}
