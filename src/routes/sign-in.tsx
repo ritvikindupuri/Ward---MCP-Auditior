@@ -74,7 +74,7 @@ export function AuthShell({ mode }: { mode: "signin" | "signup" }) {
       <header className="absolute top-0 inset-x-0 px-6 h-14 flex items-center">
         <Link to="/" className="flex items-center gap-2.5">
           <Mark size={22} />
-          <span className="text-[15px] tracking-tight font-medium">Sable</span>
+          <span className="text-[15px] tracking-tight font-medium">Ward</span>
         </Link>
       </header>
 
