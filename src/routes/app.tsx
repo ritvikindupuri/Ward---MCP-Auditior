@@ -21,7 +21,7 @@ import {
   watchRepo,
 } from "@/lib/ward.functions";
 
-type View = "scans" | "policy" | "watchlist";
+type View = "scans" | "history" | "policy" | "watchlist";
 
 export const Route = createFileRoute("/app")({
   head: () => ({
@@ -38,6 +38,8 @@ function Console() {
   const [ready, setReady] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
   const [view, setView] = useState<View>("scans");
+  const [openScanId, setOpenScanId] = useState<string | null>(null);
+  const [activeScanId, setActiveScanId] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -56,9 +58,19 @@ function Console() {
   return (
     <div className="min-h-screen bg-background text-foreground grid grid-cols-[240px_1fr]">
       <Sidebar email={email} view={view} setView={setView} />
-      {view === "scans" && <Main />}
+      {view === "scans" && (
+        <Main
+          openScanId={openScanId}
+          setOpenScanId={setOpenScanId}
+          activeScanId={activeScanId}
+          setActiveScanId={setActiveScanId}
+        />
+      )}
+      {view === "history" && <HistoryView setOpenScanId={setOpenScanId} />}
       {view === "policy" && <PolicyView />}
       {view === "watchlist" && <WatchlistView />}
+
+      {openScanId && <ScanDetail id={openScanId} onClose={() => setOpenScanId(null)} />}
     </div>
   );
 }
@@ -66,7 +78,8 @@ function Console() {
 function Sidebar({ email, view, setView }: { email: string | null; view: View; setView: (v: View) => void }) {
   const navigate = useNavigate();
   const items: Array<{ k: View; label: string }> = [
-    { k: "scans", label: "Scans" },
+    { k: "scans", label: "Dashboard" },
+    { k: "history", label: "History" },
     { k: "policy", label: "Policy" },
     { k: "watchlist", label: "Watchlist" },
   ];
@@ -99,15 +112,36 @@ function Sidebar({ email, view, setView }: { email: string | null; view: View; s
   );
 }
 
-function Main() {
+function Main({
+  openScanId,
+  setOpenScanId,
+  activeScanId,
+  setActiveScanId
+}: {
+  openScanId: string | null;
+  setOpenScanId: (id: string | null) => void;
+  activeScanId: string | null;
+  setActiveScanId: (id: string | null) => void;
+}) {
   const qc = useQueryClient();
   const ghStatus = useQuery({ queryKey: ["gh-status"], queryFn: () => getGithubStatus() });
   const scans = useQuery({ queryKey: ["scans"], queryFn: () => listScans(), refetchInterval: 3500 });
-  const [openScanId, setOpenScanId] = useState<string | null>(null);
   const [showConnect, setShowConnect] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
 
   const connected = !!ghStatus.data?.github_login;
+
+  // Auto-set the most recent scan as the active session on load if not set
+  useEffect(() => {
+    if (!activeScanId && scans.data && scans.data.length > 0) {
+      setActiveScanId(scans.data[0].id);
+    }
+  }, [scans.data, activeScanId, setActiveScanId]);
+
+  const activeScan = useMemo(() => {
+    if (!activeScanId || !scans.data) return null;
+    return scans.data.find(s => s.id === activeScanId) || null;
+  }, [activeScanId, scans.data]);
 
   // Auto-rescan runner: every 60s, check for watched repos that are due.
   useEffect(() => {
@@ -135,7 +169,7 @@ function Main() {
     <main className="p-8 max-w-5xl w-full mx-auto">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-[26px] tracking-tight font-semibold">Scans</h1>
+          <h1 className="text-[26px] tracking-tight font-semibold">Dashboard</h1>
           <p className="text-[13px] text-muted-foreground mt-1">
             {connected ? (
               <>Connected as <span className="text-foreground font-mono">{ghStatus.data?.github_login}</span></>
@@ -174,30 +208,90 @@ function Main() {
       {!connected && <ConnectPanel onOpen={() => setShowConnect(true)} />}
 
       {connected && (
-        <>
-          <LiveScansPanel
-            scans={(scans.data ?? []).filter((s) => s.status === "running" || s.status === "queued")}
-            onOpen={setOpenScanId}
-          />
-
-          <div className="rounded-2xl hairline border overflow-hidden">
-            {(scans.data ?? []).length === 0 ? (
-              <div className="p-12 text-center text-[13px] text-muted-foreground">
-                No scans yet. Click <span className="text-foreground">New scan</span> to pick a repository.
+        <div className="space-y-6">
+          {activeScan ? (
+            <div className="rounded-2xl hairline border p-6 bg-gradient-to-br from-surface to-surface/40 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-[18px] font-semibold text-white tracking-tight font-mono">{activeScan.repo_full_name}</h2>
+                  <div className="flex items-center gap-2 text-[11.5px] text-muted-foreground mt-1">
+                    <StatusDot status={activeScan.status} />
+                    <span className="uppercase tracking-[0.14em] text-[10px]">{activeScan.status}</span>
+                    <span>·</span>
+                    <span>Active Session</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setOpenScanId(activeScan.id)}
+                    className="h-8 px-3.5 rounded-full bg-white text-black text-[12.5px] font-semibold hover:opacity-90 transition"
+                  >
+                    View Details
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveScanId(null);
+                    }}
+                    className="h-8 px-3 rounded-full glass hairline border text-[12.5px] text-muted-foreground hover:text-foreground transition"
+                  >
+                    Clear Session
+                  </button>
+                </div>
               </div>
-            ) : (
-              <ul className="divide-y hairline">
-                {scans.data!.map((s) => <ScanRow key={s.id} scan={s} onOpen={() => setOpenScanId(s.id)} />)}
-              </ul>
-            )}
-          </div>
-        </>
+
+              {activeScan.status === "running" ? (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-[11px] text-muted-foreground font-mono">
+                    <span>SCANNING REPOSITORY STACK</span>
+                    <span>Running Agents...</span>
+                  </div>
+                  <LiveScansPanel scans={[activeScan]} onOpen={setOpenScanId} />
+                </div>
+              ) : activeScan.status === "complete" ? (
+                <div className="pt-2">
+                  <SummaryCards summary={(activeScan.summary ?? {}) as Record<string, number>} />
+                  <p className="text-[12.5px] text-muted-foreground mt-2">
+                    Security analysis completed. The report is preserved in your database log. Click <span className="text-white">View Details</span> to open the compliance dashboard and chat with the AI Auditor.
+                  </p>
+                </div>
+              ) : (
+                <p className="text-[13px] text-destructive">{activeScan.error || "An error occurred during scanning."}</p>
+              )}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-white/10 p-12 text-center text-[13.5px] text-muted-foreground">
+              No active scan session loaded on the dashboard.
+              <div className="mt-4 flex items-center justify-center gap-3">
+                <button
+                  onClick={() => setShowPicker(true)}
+                  className="h-9 px-4 rounded-full bg-foreground text-background text-[13px] font-medium hover:opacity-90 transition"
+                >
+                  Start New Scan
+                </button>
+                {scans.data && scans.data.length > 0 && (
+                  <button
+                    onClick={() => setActiveScanId(scans.data[0].id)}
+                    className="h-9 px-4 rounded-full glass hairline border text-[13px] text-muted-foreground hover:text-foreground transition"
+                  >
+                    Load Recent Session
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
-
       {showConnect && <ConnectModal onClose={() => setShowConnect(false)} onSaved={() => { setShowConnect(false); qc.invalidateQueries({ queryKey: ["gh-status"] }); }} />}
-      {showPicker && <RepoPicker onClose={() => setShowPicker(false)} onScanned={() => { setShowPicker(false); qc.invalidateQueries({ queryKey: ["scans"] }); }} />}
-      {openScanId && <ScanDetail id={openScanId} onClose={() => setOpenScanId(null)} />}
+      {showPicker && (
+        <RepoPicker
+          onClose={() => setShowPicker(false)}
+          onScanned={() => {
+            setShowPicker(false);
+            qc.invalidateQueries({ queryKey: ["scans"] });
+          }}
+        />
+      )}
     </main>
   );
 }
@@ -423,6 +517,7 @@ function ScanDetail({ id, onClose }: { id: string; onClose: () => void }) {
   const [downloading, setDownloading] = useState(false);
   const [dlErr, setDlErr] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>("all");
+  const [activeTab, setActiveTab] = useState<"findings" | "chat">("findings");
 
   async function download() {
     setDownloading(true); setDlErr(null);
@@ -468,45 +563,70 @@ function ScanDetail({ id, onClose }: { id: string; onClose: () => void }) {
             </button>
           </div>
 
-          {scan.status === "running" && (
-            <div className="grid grid-cols-3 md:grid-cols-5 gap-2 mb-6">
-              {(["mcp", "tool-poison", "prompt-injection", "agent-config", "ai-deps"] as const).map((k) => {
-                const st = (scan.progress as Record<string, string>)?.[k] ?? "queued";
-                return (
-                  <div key={k} className="rounded-lg hairline border p-3">
-                    <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{k}</div>
-                    <div className="text-[13px] mt-1 flex items-center gap-2">
-                      <span className={`h-1.5 w-1.5 rounded-full ${st === "done" ? "bg-emerald-400" : st === "running" ? "bg-yellow-400 animate-pulse" : "bg-muted-foreground/40"}`} />
-                      {st}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          <SummaryCards summary={(scan.summary ?? {}) as Record<string, number>} />
-
-          <div className="flex flex-wrap items-center gap-1 mb-3 text-[12px]">
-            {(["all", "mcp", "tool-poison", "prompt-injection", "agent-config", "ai-deps"] as const).map((k) => {
-              const n = k === "all" ? findings.length : findings.filter((f) => f.agent === k).length;
-              return (
-                <button key={k} onClick={() => setFilter(k)}
-                  className={`h-7 px-3 rounded-full transition ${filter === k ? "bg-foreground text-background" : "glass hairline border text-muted-foreground hover:text-foreground"}`}>
-                  {k} · {n}
-                </button>
-              );
-            })}
+          <div className="flex gap-4 border-b border-white/5 mb-5 pb-px text-[14px]">
+            <button
+              onClick={() => setActiveTab("findings")}
+              className={`pb-2.5 font-medium border-b-2 transition-all ${
+                activeTab === "findings" ? "border-emerald-400 text-white" : "border-transparent text-muted-foreground hover:text-white"
+              }`}
+            >
+              Vulnerability Findings
+            </button>
+            <button
+              onClick={() => setActiveTab("chat")}
+              className={`pb-2.5 font-medium border-b-2 transition-all ${
+                activeTab === "chat" ? "border-emerald-400 text-white" : "border-transparent text-muted-foreground hover:text-white"
+              }`}
+            >
+              Chat with AI Auditor
+            </button>
           </div>
 
-          {visible.length === 0 ? (
-            <p className="text-[13px] text-muted-foreground py-8 text-center">
-              {scan.status === "complete" ? "No findings for this filter." : "Agents still working…"}
-            </p>
+          {activeTab === "findings" ? (
+            <>
+              {scan.status === "running" && (
+                <div className="grid grid-cols-3 md:grid-cols-5 gap-2 mb-6">
+                  {(["mcp", "tool-poison", "prompt-injection", "agent-config", "ai-deps"] as const).map((k) => {
+                    const st = (scan.progress as Record<string, string>)?.[k] ?? "queued";
+                    return (
+                      <div key={k} className="rounded-lg hairline border p-3">
+                        <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{k}</div>
+                        <div className="text-[13px] mt-1 flex items-center gap-2">
+                          <span className={`h-1.5 w-1.5 rounded-full ${st === "done" ? "bg-emerald-400" : st === "running" ? "bg-yellow-400 animate-pulse" : "bg-muted-foreground/40"}`} />
+                          {st}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <SummaryCards summary={(scan.summary ?? {}) as Record<string, number>} />
+
+              <div className="flex flex-wrap items-center gap-1 mb-3 text-[12px]">
+                {(["all", "mcp", "tool-poison", "prompt-injection", "agent-config", "ai-deps"] as const).map((k) => {
+                  const n = k === "all" ? findings.length : findings.filter((f) => f.agent === k).length;
+                  return (
+                    <button key={k} onClick={() => setFilter(k)}
+                      className={`h-7 px-3 rounded-full transition ${filter === k ? "bg-foreground text-background" : "glass hairline border text-muted-foreground hover:text-foreground"}`}>
+                      {k} · {n}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {visible.length === 0 ? (
+                <p className="text-[13px] text-muted-foreground py-8 text-center">
+                  {scan.status === "complete" ? "No findings for this filter." : "Agents still working…"}
+                </p>
+              ) : (
+                <ul className="divide-y hairline">
+                  {visible.map((f) => <FindingRow key={f.id} f={f} />)}
+                </ul>
+              )}
+            </>
           ) : (
-            <ul className="divide-y hairline">
-              {visible.map((f) => <FindingRow key={f.id} f={f} />)}
-            </ul>
+            <ChatTab findings={findings} />
           )}
 
           {dlErr && <p className="text-[12px] text-destructive mt-3">{dlErr}</p>}
@@ -800,6 +920,170 @@ function Modal({ children, onClose, title, wide }: { children: React.ReactNode; 
         </div>
         {children}
       </div>
+    </div>
+  );
+}
+
+function HistoryView({ setOpenScanId }: { setOpenScanId: (id: string | null) => void }) {
+  const qc = useQueryClient();
+  const scans = useQuery({ queryKey: ["scans"], queryFn: () => listScans(), refetchInterval: 5000 });
+  const [err, setErr] = useState<string | null>(null);
+
+  const handleClearHistory = async () => {
+    if (!confirm("Are you sure you want to clear your local session history? This will delete all scan records from the database.")) return;
+    try {
+      const { error } = await supabase.from("scans").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      if (error) throw error;
+      qc.invalidateQueries({ queryKey: ["scans"] });
+    } catch (e: any) {
+      setErr(e.message || "Failed to clear history");
+    }
+  };
+
+  return (
+    <main className="p-8 max-w-5xl w-full mx-auto">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-[26px] tracking-tight font-semibold">Scan History</h1>
+          <p className="text-[13px] text-muted-foreground mt-1">Review and reload previous MCP audit sessions.</p>
+        </div>
+        {(scans.data ?? []).length > 0 && (
+          <button
+            onClick={handleClearHistory}
+            className="h-9 px-4 rounded-full bg-red-500/10 border border-red-500/20 text-[12px] text-red-400 hover:bg-red-500/20 transition"
+          >
+            Clear History
+          </button>
+        )}
+      </div>
+
+      {err && <p className="text-[12.5px] text-destructive mb-4">{err}</p>}
+
+      <div className="rounded-2xl hairline border overflow-hidden bg-background/50">
+        {scans.isLoading ? (
+          <div className="p-12 text-center text-[13.5px] text-muted-foreground">Loading history log...</div>
+        ) : (scans.data ?? []).length === 0 ? (
+          <div className="p-12 text-center text-[13px] text-muted-foreground">
+            No history found. Run a new scan on the dashboard to save your first session.
+          </div>
+        ) : (
+          <ul className="divide-y hairline">
+            {scans.data!.map((s) => (
+              <ScanRow key={s.id} scan={s} onOpen={() => setOpenScanId(s.id)} />
+            ))}
+          </ul>
+        )}
+      </div>
+    </main>
+  );
+}
+
+function ChatTab({ findings }: { findings: any[] }) {
+  const [messages, setMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([
+    { role: "assistant", content: "Hi! I am the Ward AI Security Assistant. Ask me anything about the vulnerabilities found in this scan, or how to remediate them." }
+  ]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || loading) return;
+    const userText = input;
+    setInput("");
+    setMessages(prev => [...prev, { role: "user", content: userText }]);
+    setLoading(true);
+
+    try {
+      const findingsContext = findings.map(f => `- [${f.severity.toUpperCase()}] ${f.title}: ${f.description}`).join("\n");
+      const systemPrompt = `You are the Ward Security AI Assistant. You are helpfully explaining the following MCP security audit findings to a developer:\n\n${findingsContext}\n\nProvide clear, direct, and actionable security remediation advice. Keep responses concise and formatted in markdown.`;
+
+      let activeModel = "llama-guard3";
+      try {
+        const tagsRes = await fetch("http://localhost:11434/api/tags");
+        if (tagsRes.ok) {
+          const tags = await tagsRes.json() as any;
+          const names = (tags.models ?? []).map((m: any) => m.name.toLowerCase());
+          if (names.some((n: string) => n.includes("llama3"))) activeModel = "llama3";
+          else if (names.some((n: string) => n.includes("granite-guardian"))) activeModel = "granite-guardian:8b";
+          else if (tags.models && tags.models.length > 0) activeModel = tags.models[0].name;
+        }
+      } catch (e) {
+        console.warn("Ollama tags fetch failed, using default model.");
+      }
+
+      const response = await fetch("http://localhost:11434/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: activeModel,
+          prompt: `System context:\n${systemPrompt}\n\nUser Question:\n${userText}`,
+          stream: false,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Ollama generation failed");
+      const data = await response.json() as any;
+      const reply = data.response || "No response received.";
+      setMessages(prev => [...prev, { role: "assistant", content: reply }]);
+    } catch (e: any) {
+      console.error(e);
+      setMessages(prev => [...prev, { role: "assistant", content: "Error: Failed to connect to local Ollama server. Make sure Ollama is running and has a model pulled." }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4 flex flex-col min-h-[380px] bg-black/20 rounded-2xl border border-white/5 p-4 text-left">
+      <div className="flex items-center justify-between border-b border-white/5 pb-2">
+        <span className="text-[11px] font-semibold text-emerald-400 uppercase tracking-wider font-mono">Chat Session</span>
+        <button
+          type="button"
+          onClick={() => setMessages([{ role: "assistant", content: "Chat cleared. Ask me anything about the scan." }])}
+          className="text-[10px] text-muted-foreground hover:text-white transition font-sans"
+        >
+          Clear Chat
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto space-y-3 max-h-[280px] pr-2 scrollbar-thin">
+        {messages.map((m, idx) => (
+          <div key={idx} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`max-w-[85%] rounded-xl px-3 py-2 text-[12.5px] leading-relaxed ${
+              m.role === 'user' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' : 'bg-white/5 text-muted-foreground border border-white/5'
+            }`}>
+              <span className="font-mono text-[9px] text-white/40 block mb-1 uppercase tracking-wider">{m.role}</span>
+              <p className="whitespace-pre-wrap">{m.content}</p>
+            </div>
+          </div>
+        ))}
+        {loading && (
+          <div className="flex justify-start">
+            <div className="bg-white/5 rounded-xl px-3 py-2 text-[12px] text-muted-foreground flex items-center gap-2 border border-white/5">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
+              <span>AI Auditor is analyzing...</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <form onSubmit={handleSend} className="flex gap-2 border-t border-white/5 pt-3">
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Ask a question about the findings..."
+          disabled={loading}
+          className="flex-1 h-9 rounded-lg bg-black/40 border border-white/5 px-3 text-[12.5px] outline-none focus:border-emerald-500/50 text-white placeholder:text-muted-foreground/30 transition-all font-sans"
+        />
+        <button
+          type="submit"
+          disabled={loading || !input.trim()}
+          className="h-9 px-4 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-black text-[12.5px] font-semibold disabled:opacity-50 transition-all font-sans"
+        >
+          Send
+        </button>
+      </form>
     </div>
   );
 }
