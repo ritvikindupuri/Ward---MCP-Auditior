@@ -1,118 +1,134 @@
 # Technical Documentation - Ward MCP Auditor
 
-This document provides a detailed technical overview of Ward, an open-source security auditor for Model Context Protocol (MCP) server stacks.
+**By: Ritvik Indupuri**  
+**Date: Jul 3, 2026**
+
+This document provides a comprehensive technical breakdown of the architecture, data flows, compliance mapping pipelines, and component models of Ward, an open-source local security auditing platform for Model Context Protocol (MCP) server environments.
+
+---
+
+## Table of Contents
+1. [Executive Summary](#executive-summary)
+2. [System Architecture](#system-architecture)
+3. [Agent Architecture](#agent-architecture)
+4. [Core Features](#core-features)
+5. [Database Tables Schema](#database-tables-schema)
+6. [Compliance Standards Mapping](#compliance-standards-mapping)
+7. [Conclusion](#conclusion)
+
+---
+
+## Executive Summary
+
+As artificial intelligence agents and orchestrators gain autonomous capabilities to invoke tools and read dynamic inputs via the Model Context Protocol (MCP), they introduce a broad and highly vulnerable attack surface. These risks range from remote code execution (RCE-on-connect) through unverified server configurations, to prompt injection, supply chain poisoning, and data exfiltration.
+
+Ward is designed to provide security teams with a privacy-first, local compliance and auditing framework to scan, evaluate, and map these vulnerabilities. By integrating static code analysis, registry dependency lookups, and local LLM-based prompt classification, Ward enables companies to audit their AI agent stacks without sending proprietary source code or system configurations to third-party cloud APIs. All evaluations and conversational remediation chats occur entirely within a secure local data boundary.
 
 ---
 
 ## System Architecture
 
-Ward operates as a static-and-dynamic compliance scanner running locally with remote database storage:
-
-```
-[ Frontend: React 19 / Tailwind ] <---> [ Routing: TanStack Router / Start ]
-                                                    |
-             +--------------------------------------+-------------------------------------+
-             |                                      |                                     |
-     [ Supabase DB API ]                     [ GitHub REST API ]                   [ Local Ollama API ]
-  - User Profile & Auth                  - Repository Tree Walks              - Llama Guard 3 Classifier
-  - Scan Results Logs                    - File Content Fetches               - Prompt Injection Audits
-  - Repository Watches
-```
-
----
-
-## The Multi-Agent Compliance Pipeline
-
-Ward runs 5 dedicated security check agents sequentially on the audited repository:
+Ward operates as a client-server web application using a local-first analysis model. The React-based frontend communicates with background agents to orchestrate checks, fetch repository trees, and query registry APIs.
 
 ```mermaid
-flowchart TD
-    Start[Trigger Scan] --> Tree[Walk Github Repo File Tree]
-    Tree --> A1[Agent 1: MCP Package Audit]
-    Tree --> A2[Agent 2: Tool Poisoning Detector]
-    Tree --> A3[Agent 3: Local AI Prompt Auditor]
-    Tree --> A4[Agent 4: Agency Framework Audit]
-    Tree --> A5[Agent 5: OSV Vulnerability Batch]
+graph TD
+    subgraph Browser Context
+        Client[React 19 Frontend]
+        Router[TanStack Router / Start]
+        Client <--> Router
+    end
     
-    A1 --> npm[Query npm Registry API]
-    A3 --> ollama[Local Ollama: /api/generate]
-    A5 --> osv[OSV API: Batch CVE check]
+    subgraph Local User Machine
+        Ollama[Ollama Engine]
+    end
     
-    npm & A2 & ollama & A4 & osv --> Comp[Compliance Tagging Engine]
-    Comp --> End[Save Scan to Supabase & Render Report]
+    subgraph Cloud Infrastructure
+        DB[(Supabase PostgreSQL)]
+    end
+    
+    subgraph Remote Services
+        GitHub[GitHub REST API]
+        npm[npm Registry API]
+        OSV[OSV Database API]
+    end
+    
+    Router <--> DB
+    Router <--> GitHub
+    Router <--> Ollama
+    Router <--> npm
+    Router <--> OSV
 ```
+<p align="center">Figure 1: Ward System Integration and Client-Server Boundary Architecture</p>
 
-### 1. Agent 1: MCP Server Package Scanner
-* Purpose: Identifies exposed MCP servers and checks their package health.
-* Mechanism: Queries https://registry.npmjs.org/<package> to fetch metadata.
-* Vulnerabilities Flagged: 
-  * install_script: If package contains post-install scripts (highly prone to supply-chain execution worms).
-  * young_package: If package age is below policy threshold (e.g. less than 30 days).
-  * solo_maintainer: If package has only one owner (risk of account hijack).
-
-### 2. Agent 2: Tool Poisoning Detector
-* Purpose: Inspects tool schemas for descriptive prompt lures.
-* Mechanism: Heuristic regex scanning targeting tool definition arguments (defineTool, createTool, tool()).
-
-### 3. Agent 3: Local AI Prompt Auditor
-* Purpose: Evaluates committed system prompts and inline template files for prompt injection vulnerabilities.
-* Mechanism: Queries the local Ollama instance at http://localhost:11434/api/generate with "format": "json".
-* Dynamic Model Selection:
-  1. Reads process.env.AUDIT_AI_MODEL first if defined.
-  2. Queries local Ollama /api/tags to check active models.
-  3. Picks granite-guardian:8b, llama-guard3, or llama3 based on presence.
-  4. Falls back gracefully to llama-guard3.
-* Output Format:
-  ```json
-  {
-    "risks": [
-      {
-        "file": "src/prompts/system.txt",
-        "severity": "high",
-        "issue": "Role override",
-        "reasoning": "Prompt contains instructions enabling users to bypass default system instructions."
-      }
-    ]
-  }
-  ```
-
-### 4. Agent 4: Agent Framework Config Auditor
-* Purpose: Scans code files (.ts, .py, .js) for excessive agency parameters in orchestrators (LangChain, CrewAI, AutoGen, etc.).
-* Vulnerabilities Flagged:
-  * dangerous_exec: Presence of dangerouslyAllowHtml, dangerouslyAllowCodeExecution, or unverified execution hooks.
-
-### 5. Agent 5: OSV Vulnerability Audit
-* Purpose: Checks packages against the Open Source Vulnerabilities database.
-* Mechanism: Sends a batch request containing dependencies to https://api.osv.dev/v1/query.
+The System Architecture divides operations into three primary boundaries:
+1. Browser Client: Initiates scans, manages active session states, renders compliance findings cards, and executes local-first AI chats.
+2. Local User Machine: Runs the Ollama server for LLM inference (prompt evaluations and interactive remediation chat) and hosts the developer's development server.
+3. Cloud and Remote Services: Connects to Supabase to authorize sessions and store scans/findings logs, maps repositories via the GitHub REST API, and queries npm and OSV APIs for live package intelligence.
 
 ---
 
-## Interactive AI Auditor Chat
+## Agent Architecture
 
-Ward exposes a local-first AI Security Q&A Assistant inside the scan detail modal, enabling developers to ask follow-up questions about findings:
+When an audit is triggered, Ward dispatches a pipeline of five specialized, parallel security agents that parse the repository and feed raw signals into a centralized Compliance Engine.
 
-* Prompt Engineering: When a query is made, Ward aggregates all scan findings into a Markdown context list:
-  ```markdown
-  - [CRITICAL] dangerously_allow_code_execution enabled: Unsandboxed PythonREPLTool found...
-  - [HIGH] committed system prompt injection: Role override risk...
-  ```
-  It compiles this into a system context:
-  `You are the Ward Security AI Assistant. Explain these findings and provide remediation guides...`
-* Local Inference Boundary: The chat queries your local Ollama port (localhost:11434/api/generate) directly from the browser context. Conversation logs, source codes, and vulnerability telemetry remain strictly inside the local network loop.
-* General LLM Support: Ward resolves and utilizes general models like llama3, mistral, and gemma by checking pulled tags, defaulting to general models over safety classifiers for rich conversational guidance.
+```mermaid
+graph TD
+    Repo[GitHub Repository Tree] --> Parser[Manifest & Source Parser]
+    
+    subgraph Parallel Security Agent Stack
+        A1[Agent 1: MCP Server Scanner]
+        A2[Agent 2: Tool Poisoning Detector]
+        A3[Agent 3: Local AI Prompt Auditor]
+        A4[Agent 4: Orchestrator Config Auditor]
+        A5[Agent 5: AI-stack CVE Checker]
+    end
+    
+    Parser --> A1 & A2 & A3 & A4 & A5
+    
+    A1 --> npm[npm registry API]
+    A3 --> Ollama[Local Ollama Inference]
+    A5 --> OSV[OSV Database API]
+    
+    A1 & A2 & A3 & A4 & A5 --> Comp[Compliance Tagging Engine]
+    Comp --> Judge[Local LLM Judge Verdicts]
+    Judge --> Report[PDF Compiler & Supabase Commit]
+```
+<p align="center">Figure 2: Multi-Agent Analysis and Compliance Evaluation Pipeline</p>
+
+The evaluation workflow flows through the following checkpoints:
+1. Repository File Parsing: Filters the file tree for manifest configurations (mcp.json, package.json, requirements.txt) and prompt templates.
+2. Agent Ingestion: The five agents run parallel evaluations. Agents 1, 3, and 5 query external registries and local AI models, while Agents 2 and 4 evaluate files using regex heuristics.
+3. Normalization: The Compliance Tagging Engine receives raw signals and maps them to standard tags.
+4. Judge Arbitration: A local LLM judge evaluates the normalized signals to verify risks and assign severity levels.
+5. Report Export: The finalized audit log is saved to Supabase and compiled into a PDF.
 
 ---
 
-## Scan History & Session Lifecycle
+## Core Features
 
-The Console utilizes a decoupled state architecture to manage active sessions and persistent history logs:
+### GitHub Integration & Repository Walks
+Ward connects to GitHub using fine-grained Personal Access Tokens (PAT). It recursively walks repo directory trees, locating manifest declarations and source code files without clone overhead.
 
-* Active Session State: The main dashboard displays the latest scan session in state. When a user triggers Clear Session, the app resets the workspace view to a clean state but preserves all scan logs in the Supabase PostgreSQL database.
-* Session Reloading: Selecting any record inside the History tab lifts the openScanId state, loading the complete findings list and AI Chat history for that historical scan instantly.
-* History Purging: Developers can delete all historic scan logs via the Clear History button, which executes a Supabase query:
-  ```sql
-  DELETE FROM scans WHERE id != '00000000-0000-0000-0000-000000000000';
-  ```
+### Multi-Agent Pipeline & Dependency Audits
+Runs static scans for tool descriptions, prompt templates, framework configuration properties, and queries OSV databases and npm packages to flag solo owners or post-install scripts.
+
+### Local AI Prompt Auditing
+Utilizes Ollama to scan system prompts and templates. It dynamically checks for active models (llama-guard3, granite-guardian, llama3) to execute local audits.
+
+### Interactive AI Security Chat
+An assistant chat drawer inside the details modal lets developers ask follow-up questions about findings. It aggregates the scan's findings into system context and queries Ollama locally.
+
+### Declarative Policy Management
+Enforces developer rules like restricting npx execution, requiring HTTPS URL schemes, requiring pinned versions, and managing package allow-lists and deny-lists.
+
+### Periodic Background Watchlists
+Monitors watched codebases automatically on a customized hourly cadence. Scans run in the background as long as the console is active.
+
+### Decoupled Session Lifecycle
+Dashboard views display the current session and can be cleared via Clear Session, which resets the dashboard view while preserving all logs in the database. Historical logs are managed in the History tab.
+
+### Automated PDF Reports
+Generates downloadable, compliance-ready PDF summaries listing vulnerabilities, severity distributions, and remediation logs.
 
 ---
 
@@ -180,3 +196,9 @@ Findings are mapped to international security standards in ward.functions.ts via
 | **Sensitive Info Disclosure** | LLM02 (Data Leakage) | MEASURE-2.6 |
 | **Supply Chain Risks** | LLM03 (Supply Chain Vulnerabilities) | MAP-4.1 |
 | **Excessive Agency** | LLM06 (Excessive Agency) | MANAGE-2.3 |
+
+---
+
+## Conclusion
+
+By combining deterministic checks with local AI inference, Ward provides a comprehensive and secure solution for auditing Model Context Protocol (MCP) environments. Its architecture ensures that organizations can identify vulnerabilities, enforce policies, and maintain compliance standards while keeping sensitive source code within their local network security boundaries.
