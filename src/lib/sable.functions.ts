@@ -421,7 +421,18 @@ export const generateReport = createServerFn({ method: "POST" })
       return lines;
     };
 
-    // Cover
+    // Helpers
+    const heading = (t: string) => {
+      need(40);
+      text(t.toUpperCase(), M, 9, bold, muted); y -= 6;
+      page.drawLine({ start: { x: M, y }, end: { x: W - M, y }, thickness: 0.5, color: rule });
+      y -= 18;
+    };
+    const para = (t: string, size = 10, color = ink) => {
+      for (const line of wrap(t, size, W - 2 * M)) { need(size + 4); text(line, M, size, font, color); y -= size + 3; }
+    };
+
+    // ---------- Cover ----------
     text("SABLE", M, 10, bold, muted);
     y -= 14; text("Supply-chain risk report", M, 10, font, muted);
     y -= 48;
@@ -431,7 +442,7 @@ export const generateReport = createServerFn({ method: "POST" })
     y -= 8;
     text(scan.repo_url, M, 10, mono, muted); y -= 24;
     text(`Generated ${new Date().toISOString().slice(0, 10)}`, M, 10, font, muted); y -= 8;
-    text(`Scan id ${scan.id}`, M, 9, mono, muted); y -= 40;
+    text(`Branch ${scan.default_branch ?? "main"} · Scan ${scan.id.slice(0, 8)}`, M, 9, mono, muted); y -= 40;
 
     const s = (scan.summary ?? {}) as Record<string, number>;
     const cards: Array<[string, number, ReturnType<typeof rgb>]> = [
@@ -450,7 +461,7 @@ export const generateReport = createServerFn({ method: "POST" })
     }
     y -= 96;
 
-    text("BY AGENT", M, 9, bold, muted); y -= 16;
+    heading("Coverage by agent");
     const agents: Array<[string, string]> = [
       ["Dependency CVEs (OSV.dev)", "deps"],
       ["Committed secrets", "secrets"],
@@ -462,28 +473,121 @@ export const generateReport = createServerFn({ method: "POST" })
       text(label, M, 11, font); text(String(c), W - M - 30, 11, mono);
       y -= 18;
     }
-    y -= 8;
-    page.drawLine({ start: { x: M, y }, end: { x: W - M, y }, thickness: 0.5, color: rule });
-    y -= 20;
+    y -= 4;
     text(`${s.deps_analyzed ?? 0} dependencies analyzed · ${s.files_scanned ?? 0} files scanned for secrets`, M, 9, font, muted);
 
-    // Findings pages, grouped by severity
+    // ---------- Executive summary ----------
+    newPage();
+    heading("Executive summary");
+    const total = rows.length;
+    const critH = (s.critical ?? 0) + (s.high ?? 0);
+    const posture = critH === 0 && total === 0
+      ? "No exploitable weaknesses were surfaced across the four agents. Continue routine dependency hygiene."
+      : critH === 0
+        ? `${total} lower-severity issue${total === 1 ? "" : "s"} were surfaced. No immediate compromise indicated; schedule remediation in the next release cycle.`
+        : `${critH} critical/high issue${critH === 1 ? "" : "s"} were surfaced across ${total} total findings. Prioritise remediation before the next production deploy.`;
+    para(`Sable executed a four-agent supply-chain audit against ${scan.repo_full_name} on branch ${scan.default_branch ?? "main"}. ${posture}`);
+    y -= 6;
+
+    const bullets: string[] = [];
+    if ((s.deps ?? 0) > 0) bullets.push(`Vulnera identified ${s.deps} known CVE${s.deps === 1 ? "" : "s"} in resolved dependency versions via OSV.dev.`);
+    if ((s.secrets ?? 0) > 0) bullets.push(`Sift matched ${s.secrets} committed secret pattern${s.secrets === 1 ? "" : "s"}; treat each as compromised and rotate immediately.`);
+    if ((s.supply ?? 0) > 0) bullets.push(`Lineage flagged ${s.supply} supply-chain concern${s.supply === 1 ? "" : "s"} (typosquats, abandoned packages, or solo-maintainer chokepoints).`);
+    if ((s.osint ?? 0) > 0) bullets.push(`Signal flagged ${s.osint} maintainer/OSINT risk${s.osint === 1 ? "" : "s"} worth analyst review.`);
+    if (bullets.length === 0) bullets.push("All four agents completed without producing high-confidence findings.");
+    for (const b of bullets) {
+      need(28);
+      page.drawCircle({ x: M + 3, y: y - 4, size: 1.6, color: rgb(0.2, 0.55, 0.4) });
+      for (const [i, line] of wrap(b, 10, W - 2 * M - 16).entries()) {
+        need(14); text(line, M + 14, 10, font, ink); y -= 13; void i;
+      }
+      y -= 4;
+    }
+
+    // ---------- CVE list (Vulnera) ----------
+    const cves = rows.filter((r) => r.agent === "deps");
+    newPage();
+    heading(`CVE inventory · ${cves.length} advisor${cves.length === 1 ? "y" : "ies"}`);
+    if (cves.length === 0) {
+      para("No known CVEs matched the resolved dependency versions at the time of scan.", 10, muted);
+    } else {
+      // Table header
+      need(20);
+      const col1 = M, col2 = M + 150, col3 = M + 380, col4 = M + 460;
+      text("Advisory", col1, 8, bold, muted);
+      text("Package @ Version", col2, 8, bold, muted);
+      text("CVSS", col3, 8, bold, muted);
+      text("Severity", col4, 8, bold, muted);
+      y -= 6;
+      page.drawLine({ start: { x: M, y }, end: { x: W - M, y }, thickness: 0.5, color: rule }); y -= 12;
+
+      for (const f of cves) {
+        need(18);
+        const ev = (f.evidence ?? {}) as Record<string, unknown>;
+        const cve = String(ev.cve ?? f.title).slice(0, 24);
+        const pkg = `${String(ev.package ?? "?")}@${String(ev.version ?? "?")}`.slice(0, 36);
+        const cvss = ev.cvss != null ? String(ev.cvss) : "—";
+        text(cve, col1, 9, mono, ink);
+        text(pkg, col2, 9, mono, ink);
+        text(cvss, col3, 9, mono, ink);
+        page.drawRectangle({ x: col4, y: y - 3, width: 46, height: 12, color: sevColor(f.severity) });
+        page.drawText(String(f.severity).toUpperCase(), { x: col4 + 4, y: y - 1, size: 7, font: bold, color: rgb(1, 1, 1) });
+        y -= 15;
+      }
+    }
+
+    // ---------- Committed secrets ----------
+    const secrets = rows.filter((r) => r.agent === "secrets");
+    if (secrets.length) {
+      newPage();
+      heading(`Committed secrets · ${secrets.length}`);
+      para("Every match below should be treated as compromised regardless of repository visibility. Rotate the credential at the provider and purge the value from git history (BFG or git filter-repo).", 10);
+      y -= 6;
+      for (const f of secrets) {
+        renderFindingBlock(f);
+      }
+    }
+
+    // ---------- Supply-chain rationale (Lineage) ----------
+    const supply = rows.filter((r) => r.agent === "supply");
+    newPage();
+    heading(`Supply-chain risk rationale · ${supply.length}`);
+    if (supply.length === 0) {
+      para("Lineage did not detect typosquats, abandoned packages, or solo-maintainer chokepoints in the analysed dependency sample.", 10, muted);
+    } else {
+      para("Each entry below was surfaced by the Lineage agent and validated by the LLM judge. Reasoning is included so analysts can accept or override the verdict.", 10, muted);
+      y -= 8;
+      for (const f of supply) renderFindingBlock(f);
+    }
+
+    // ---------- OSINT notes (Signal) ----------
+    const osint = rows.filter((r) => r.agent === "osint");
+    newPage();
+    heading(`OSINT notes · ${osint.length}`);
+    if (osint.length === 0) {
+      para("Signal did not surface maintainer or organisation-level anomalies against the repo metadata.", 10, muted);
+    } else {
+      para("Signals correlate repository metadata with owner-account posture (age, followers, affiliation). Treat these as leads for human review, not conclusions.", 10, muted);
+      y -= 8;
+      for (const f of osint) renderFindingBlock(f);
+    }
+
+    // ---------- All findings, grouped by severity ----------
     const order = ["critical", "high", "medium", "low", "info"];
     const grouped = order.flatMap((sev) => rows.filter((r) => r.severity === sev));
+    if (grouped.length) {
+      newPage();
+      heading(`All findings · ${rows.length} total`);
+      for (const f of grouped) renderFindingBlock(f);
+    }
 
-    newPage();
-    text("FINDINGS", M, 10, bold, muted); y -= 24;
-    text(`${rows.length} total`, M, 20, bold); y -= 32;
-
-    for (const f of grouped) {
-      need(90);
-      // severity chip
+    function renderFindingBlock(f: typeof rows[number]) {
+      need(60);
       const chipW = 62;
       page.drawRectangle({ x: M, y: y - 14, width: chipW, height: 16, color: sevColor(f.severity) });
       page.drawText(String(f.severity).toUpperCase(), { x: M + 6, y: y - 10, size: 8, font: bold, color: rgb(1, 1, 1) });
       page.drawText(`[${String(f.agent).toUpperCase()}]`, { x: M + chipW + 8, y: y - 10, size: 8, font: mono, color: muted });
       y -= 24;
-
       for (const line of wrap(f.title ?? "", 12, W - 2 * M, bold)) { need(16); text(line, M, 12, bold); y -= 15; }
       if (f.description) {
         y -= 4;
@@ -491,7 +595,7 @@ export const generateReport = createServerFn({ method: "POST" })
       }
       if (f.judge_reasoning) {
         y -= 4;
-        text("Judge:", M, 8, bold, muted); y -= 11;
+        text(`Judge · ${f.judge_verdict ?? "verdict"}`, M, 8, bold, muted); y -= 11;
         for (const line of wrap(f.judge_reasoning as string, 9, W - 2 * M - 12)) { need(12); text(line, M + 12, 9, font, muted); y -= 11; }
       }
       const ev = (f.evidence ?? {}) as Record<string, unknown>;
@@ -504,6 +608,7 @@ export const generateReport = createServerFn({ method: "POST" })
       page.drawLine({ start: { x: M, y }, end: { x: W - M, y }, thickness: 0.3, color: rule });
       y -= 16;
     }
+
 
     // Footer on each page
     const pages = pdf.getPages();
