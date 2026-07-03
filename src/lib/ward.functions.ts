@@ -463,17 +463,21 @@ export const startScan = createServerFn({ method: "POST" })
               evidence: { server: s.name, package: s.package_hint, latest: nm.latest, install_script: true },
               judge_verdict: "confirmed",
               judge_reasoning: "Install scripts are the historical entry point for crypto-drainer worms in the npm ecosystem.",
+              compliance_key: "install_script",
             }]);
           }
-          if (nm.age_days !== null && nm.age_days < 30) {
+          const minAge = policy?.min_package_age_days ?? 30;
+          if (nm.age_days !== null && nm.age_days < minAge) {
             bump("medium"); summary.mcp++;
             await insertFindings([{
               agent: "mcp", severity: "medium",
-              title: `MCP package "${s.package_hint}" is ${nm.age_days} days old`,
+              title: `MCP package "${s.package_hint}" is ${nm.age_days} days old (policy minimum: ${minAge})`,
               description: `Recently-published packages are the vast majority of malicious-package incidents. Verify authorship before wiring this MCP server into your agent stack.`,
-              evidence: { server: s.name, package: s.package_hint, age_days: nm.age_days, maintainers: nm.maintainer_count },
+              evidence: { server: s.name, package: s.package_hint, age_days: nm.age_days, maintainers: nm.maintainer_count, policy_min_age: minAge },
               judge_verdict: "needs-review",
-              judge_reasoning: "Age-under-30-days is a well-established malicious-package indicator (Socket, Sonatype).",
+              judge_reasoning: "Age-under-policy-minimum is a well-established malicious-package indicator (Socket, Sonatype).",
+              compliance_key: "young_package",
+              policy_violation: "min_package_age",
             }]);
           }
           if (nm.maintainer_count === 1) {
@@ -485,6 +489,7 @@ export const startScan = createServerFn({ method: "POST" })
               evidence: { server: s.name, package: s.package_hint, maintainers: 1 },
               judge_verdict: "likely",
               judge_reasoning: "Solo-maintainer packages have historically been the highest-impact takeover targets (event-stream, ua-parser-js).",
+              compliance_key: "solo_maintainer",
             }]);
           }
         }
