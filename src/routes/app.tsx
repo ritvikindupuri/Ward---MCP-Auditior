@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Mark } from "./index";
+import { Mark, MCPRobot, PoisonRobot, BrainRobot, ConfigRobot, CVERobot } from "./index";
 import {
   disconnectGithub,
   generateReport,

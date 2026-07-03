@@ -380,7 +380,7 @@ function ValuePropositions() {
 }
 
 // Custom inline robot SVG icon components to represent the five agents uniquely
-function MCPRobot({ className }: { className?: string }) {
+export function MCPRobot({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
       <rect x="3" y="10" width="18" height="11" rx="4" />
@@ -394,7 +394,7 @@ function MCPRobot({ className }: { className?: string }) {
   );
 }
 
-function PoisonRobot({ className }: { className?: string }) {
+export function PoisonRobot({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
       <path d="M 5 6 L 19 6 L 17 18 L 12 21 L 7 18 Z" />
@@ -405,7 +405,7 @@ function PoisonRobot({ className }: { className?: string }) {
   );
 }
 
-function BrainRobot({ className }: { className?: string }) {
+export function BrainRobot({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
       <rect x="5" y="10" width="14" height="11" rx="3" />
@@ -417,7 +417,7 @@ function BrainRobot({ className }: { className?: string }) {
   );
 }
 
-function ConfigRobot({ className }: { className?: string }) {
+export function ConfigRobot({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
       <rect x="4" y="9" width="16" height="12" rx="2" />
@@ -431,7 +431,7 @@ function ConfigRobot({ className }: { className?: string }) {
   );
 }
 
-function CVERobot({ className }: { className?: string }) {
+export function CVERobot({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
       <ellipse cx="12" cy="7" rx="7" ry="3" />
