@@ -12,13 +12,13 @@ import {
   listScans,
   saveGithubPat,
   startScan,
-} from "@/lib/sable.functions";
+} from "@/lib/ward.functions";
 
 export const Route = createFileRoute("/app")({
   head: () => ({
     meta: [
-      { title: "Console — Sable" },
-      { name: "description", content: "Run supply-chain scans across your GitHub repositories." },
+      { title: "Console — Ward" },
+      { name: "description", content: "Run MCP & AI-agent supply-chain scans across your GitHub repositories." },
     ],
   }),
   component: Console,
