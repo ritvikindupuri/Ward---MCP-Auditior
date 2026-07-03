@@ -128,18 +128,26 @@ function Main() {
       {!connected && <ConnectPanel onOpen={() => setShowConnect(true)} />}
 
       {connected && (
-        <div className="rounded-2xl hairline border overflow-hidden">
-          {(scans.data ?? []).length === 0 ? (
-            <div className="p-12 text-center text-[13px] text-muted-foreground">
-              No scans yet. Click <span className="text-foreground">New scan</span> to pick a repository.
-            </div>
-          ) : (
-            <ul className="divide-y hairline">
-              {scans.data!.map((s) => <ScanRow key={s.id} scan={s} onOpen={() => setOpenScanId(s.id)} />)}
-            </ul>
-          )}
-        </div>
+        <>
+          <LiveScansPanel
+            scans={(scans.data ?? []).filter((s) => s.status === "running" || s.status === "queued")}
+            onOpen={setOpenScanId}
+          />
+
+          <div className="rounded-2xl hairline border overflow-hidden">
+            {(scans.data ?? []).length === 0 ? (
+              <div className="p-12 text-center text-[13px] text-muted-foreground">
+                No scans yet. Click <span className="text-foreground">New scan</span> to pick a repository.
+              </div>
+            ) : (
+              <ul className="divide-y hairline">
+                {scans.data!.map((s) => <ScanRow key={s.id} scan={s} onOpen={() => setOpenScanId(s.id)} />)}
+              </ul>
+            )}
+          </div>
+        </>
       )}
+
 
       {showConnect && <ConnectModal onClose={() => setShowConnect(false)} onSaved={() => { setShowConnect(false); qc.invalidateQueries({ queryKey: ["gh-status"] }); }} />}
       {showPicker && <RepoPicker onClose={() => setShowPicker(false)} onScanned={() => { setShowPicker(false); qc.invalidateQueries({ queryKey: ["scans"] }); }} />}
@@ -284,9 +292,80 @@ function SevPill({ sev, n }: { sev: string; n: number }) {
 }
 
 function StatusDot({ status }: { status: string }) {
-  const c = status === "complete" ? "bg-emerald-400" : status === "running" ? "bg-yellow-400 animate-pulse" : status === "error" ? "bg-red-400" : "bg-muted-foreground";
+  const c = status === "complete" ? "bg-primary" : status === "running" ? "bg-yellow-400 animate-pulse" : status === "error" ? "bg-red-400" : "bg-muted-foreground";
   return <span className={`h-2 w-2 rounded-full ${c}`} />;
 }
+
+type ScanListItem = Awaited<ReturnType<typeof listScans>>[number];
+
+function LiveScansPanel({ scans, onOpen }: { scans: ScanListItem[]; onOpen: (id: string) => void }) {
+  if (scans.length === 0) return null;
+  return (
+    <div className="mb-6 rounded-2xl hairline border overflow-hidden bg-gradient-to-br from-primary/[0.04] to-accent/[0.04]">
+      <div className="flex items-center gap-2 px-4 h-10 border-b hairline">
+        <span className="relative flex h-2 w-2">
+          <span className="absolute inset-0 rounded-full bg-primary/60 animate-ping" />
+          <span className="relative h-2 w-2 rounded-full bg-primary" />
+        </span>
+        <span className="text-[10.5px] uppercase tracking-[0.2em] text-primary/90 font-medium">Live · {scans.length} running</span>
+        <span className="ml-auto text-[10.5px] text-muted-foreground font-mono">agents dispatched in parallel</span>
+      </div>
+      <ul className="divide-y hairline">
+        {scans.map((s) => <LiveScanRow key={s.id} scan={s} onOpen={() => onOpen(s.id)} />)}
+      </ul>
+    </div>
+  );
+}
+
+function LiveScanRow({ scan, onOpen }: { scan: ScanListItem; onOpen: () => void }) {
+  const progress = (scan.progress ?? {}) as Record<string, string>;
+  const agents: Array<{ k: string; label: string; hint: string }> = [
+    { k: "deps",    label: "Vulnera", hint: "OSV.dev" },
+    { k: "secrets", label: "Sift",    hint: "secrets" },
+    { k: "supply",  label: "Lineage", hint: "supply" },
+    { k: "osint",   label: "Signal",  hint: "OSINT" },
+  ];
+  const done = agents.filter((a) => progress[a.k] === "done").length;
+  const pct = Math.round((done / agents.length) * 100);
+  return (
+    <li className="p-4 hover:bg-surface-2/40 transition cursor-pointer" onClick={onOpen}>
+      <div className="flex items-center gap-3 mb-3">
+        <StatusDot status={scan.status} />
+        <div className="flex-1 min-w-0">
+          <div className="text-[13.5px] font-mono truncate">{scan.repo_full_name}</div>
+          <div className="text-[11px] text-muted-foreground">
+            Started {new Date(scan.started_at).toLocaleTimeString()} · {done} / {agents.length} agents complete
+          </div>
+        </div>
+        <span className="text-[11px] font-mono text-muted-foreground">{pct}%</span>
+      </div>
+      <div className="relative h-1 rounded-full bg-surface-2 overflow-hidden mb-3">
+        <div
+          className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary to-accent transition-all duration-500"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        {agents.map((a) => {
+          const st = progress[a.k] ?? "queued";
+          const dotC = st === "done" ? "bg-primary" : st === "running" ? "bg-yellow-400 animate-pulse" : "bg-muted-foreground/40";
+          const border = st === "running" ? "border-yellow-400/40" : st === "done" ? "border-primary/40" : "hairline";
+          return (
+            <div key={a.k} className={`rounded-lg border ${border} bg-background/40 px-3 py-2`}>
+              <div className="flex items-center gap-2">
+                <span className={`h-1.5 w-1.5 rounded-full ${dotC}`} />
+                <span className="text-[11.5px] font-medium">{a.label}</span>
+                <span className="ml-auto text-[9.5px] uppercase tracking-[0.16em] text-muted-foreground">{st}</span>
+              </div>
+              <div className="text-[10px] text-muted-foreground mt-0.5 font-mono">{a.hint}</div>
+            </div>
+          );
+        })}
+      </div>
+    </li>
+  );
+}
+
 
 function ScanDetail({ id, onClose }: { id: string; onClose: () => void }) {
   const q = useQuery({

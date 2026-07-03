@@ -103,35 +103,102 @@ function Hero() {
   );
 }
 
-/** Interactive scan visualization — hover a node to inspect its live output. */
+/** Interactive scan diagram — click a node to inspect its example input/output. */
 function LiveScanDemo() {
-  const nodes = [
-    { id: "repo", label: "Repository", sub: "acme/payments-svc", x: 8, y: 50 },
-    { id: "vulnera", label: "Vulnera", sub: "OSV.dev · deps", x: 38, y: 18, agent: true, color: "#ef4444" },
-    { id: "sift", label: "Sift", sub: "secrets scan", x: 38, y: 40, agent: true, color: "#f97316" },
-    { id: "lineage", label: "Lineage", sub: "supply-chain", x: 38, y: 62, agent: true, color: "#eab308" },
-    { id: "signal", label: "Signal", sub: "maintainer OSINT", x: 38, y: 84, agent: true, color: "#38bdf8" },
-    { id: "judge", label: "LLM Judge", sub: "reasoning · verdict", x: 68, y: 50 },
-    { id: "pdf", label: "PDF Report", sub: "board-ready", x: 92, y: 50 },
-  ] as const;
+  type NodeDef = {
+    id: string;
+    label: string;
+    kind: "source" | "agent" | "judge" | "artifact";
+    x: number; y: number;
+    accent?: string;
+  };
 
-  const edges = [
+  const nodes: NodeDef[] = [
+    { id: "repo",    label: "Repository",  kind: "source",   x: 10, y: 50 },
+    { id: "vulnera", label: "Vulnera",     kind: "agent",    x: 42, y: 14, accent: "#f87171" },
+    { id: "sift",    label: "Sift",        kind: "agent",    x: 42, y: 38, accent: "#fb923c" },
+    { id: "lineage", label: "Lineage",     kind: "agent",    x: 42, y: 62, accent: "#facc15" },
+    { id: "signal",  label: "Signal",      kind: "agent",    x: 42, y: 86, accent: "#a78bfa" },
+    { id: "judge",   label: "LLM Judge",   kind: "judge",    x: 72, y: 50 },
+    { id: "pdf",     label: "PDF Report",  kind: "artifact", x: 94, y: 50 },
+  ];
+
+  const edges: Array<[string, string]> = [
     ["repo", "vulnera"], ["repo", "sift"], ["repo", "lineage"], ["repo", "signal"],
     ["vulnera", "judge"], ["sift", "judge"], ["lineage", "judge"], ["signal", "judge"],
     ["judge", "pdf"],
-  ] as const;
+  ];
+
+  const details: Record<string, {
+    subtitle: string;
+    summary: string;
+    input: { label: string; body: string };
+    output: { label: string; body: string };
+    tag: string;
+  }> = {
+    repo: {
+      subtitle: "GitHub source of truth",
+      summary: "Read-only fine-grained PAT. Default branch only. Never writes.",
+      tag: "SOURCE",
+      input: { label: "Fetch", body: "GET /repos/acme/payments-svc\nGET /repos/acme/payments-svc/git/trees/main?recursive=1" },
+      output: { label: "Materials", body: "package.json  · 342 deps\nrequirements.txt · 41 deps\n1,204 blobs enumerated" },
+    },
+    vulnera: {
+      subtitle: "Dependency CVEs · OSV.dev",
+      summary: "Batch-queries OSV.dev for every resolved version, scores CVSS, splits by severity.",
+      tag: "AGENT · DEPS",
+      input: { label: "OSV query", body: `POST https://api.osv.dev/v1/querybatch\n{ "queries": [\n  { "package": { "name": "cross-spawn", "ecosystem": "npm" },\n    "version": "7.0.3" }, …\n] }` },
+      output: { label: "Findings", body: `CVE-2024-21538 · cross-spawn@7.0.3 · CVSS 7.5 · high\nGHSA-mwcw-c2x4-8c55 · lodash@4.17.20 · CVSS 5.3 · medium\n14 advisories across 342 deps` },
+    },
+    sift: {
+      subtitle: "Committed secrets · regex + entropy",
+      summary: "Walks default branch, matches high-confidence signatures (AWS, GH, Stripe, private keys).",
+      tag: "AGENT · SECRETS",
+      input: { label: "Scan set", body: "80 files · .env, .yml, .ts, .py, .toml\nExcludes: node_modules, dist, vendor" },
+      output: { label: "Hits", body: `AWS_ACCESS_KEY_ID  in  .env.example  · AKIA5XW…\nSTRIPE_SK_LIVE     in  scripts/seed.ts · sk_live_51H…\n2 leaked · rotate immediately` },
+    },
+    lineage: {
+      subtitle: "Supply-chain risk · LLM-judged",
+      summary: "Judge inspects the dependency graph for typosquats, abandoned packages, and solo-maintainer chokepoints.",
+      tag: "AGENT · SUPPLY",
+      input: { label: "Prompt payload", body: `role: system → "You are a supply-chain analyst…"\nrole: user   → "Dependencies:\\nnpm:node-ipc@11.1.0\\nnpm:reqeusts@2.4.0 …"` },
+      output: { label: "Verdicts", body: `solo_maintainer · npm:node-ipc@11.1.0 · high\ntyposquat       · npm:reqeusts@2.4.0    · critical\nabandoned       · npm:request@2.88.2    · medium` },
+    },
+    signal: {
+      subtitle: "Maintainer OSINT · LLM-judged",
+      summary: "Correlates repo metadata with owner account age, follower graph, license posture, claimed affiliation.",
+      tag: "AGENT · OSINT",
+      input: { label: "Correlation set", body: `owner.login = acme-labs · created 2026-06-19 (14d ago)\nowner.public_repos = 3 · followers = 1\nrepo.stars = 812 · license = null` },
+      output: { label: "Signals", body: `Owner account created 14 days before push · medium\nNo LICENSE file on widely-forked repo    · low\nAffiliation "@stripe" unverifiable        · medium` },
+    },
+    judge: {
+      subtitle: "LLM Judge · verdict + reasoning",
+      summary: "Cross-references every raw signal, ranks by exploitability, attaches short reasoning per finding.",
+      tag: "JUDGE",
+      input: { label: "Fan-in", body: "14 CVEs + 2 secrets + 3 supply + 3 OSINT\n= 22 raw signals" },
+      output: { label: "Ranked", body: `confirmed  · CRITICAL · Stripe live key in scripts/seed.ts\nconfirmed  · HIGH     · CVE-2024-21538 (cross-spawn)\nlikely     · HIGH     · typosquat: reqeusts@2.4.0` },
+    },
+    pdf: {
+      subtitle: "Board-ready audit artifact",
+      summary: "Severity-graded index, agent attribution, judge reasoning per finding, CVE table, OSINT notes.",
+      tag: "ARTIFACT",
+      input: { label: "Compose", body: "cover · exec summary · summary cards\nCVE table · supply rationale · OSINT notes" },
+      output: { label: "File", body: "sable-acme-payments-svc-a1c9f2b.pdf\n· 12 pages · 218 KB" },
+    },
+  };
 
   const [active, setActive] = useState<string>("vulnera");
+  const a = details[active];
   const activeNode = nodes.find((n) => n.id === active)!;
 
-  const details: Record<string, { title: string; items: string[] }> = {
-    repo: { title: "Source", items: ["Read-only PAT", "Default branch only", "No code egress"] },
-    vulnera: { title: "Vulnera output", items: ["CVE-2024-21538 · cross-spawn@7.0.3", "GHSA-mwcw-c2x4-8c55 · lodash@4.17.20", "342 deps · 14 advisories"] },
-    sift: { title: "Sift output", items: ["AWS_ACCESS_KEY_ID in .env.example", "Stripe live key in seed.ts", "12 files scanned"] },
-    lineage: { title: "Lineage output", items: ["Solo maintainer: node-ipc@11.1.0", "Typosquat candidate: reqeusts", "1 abandoned package"] },
-    signal: { title: "Signal output", items: ["Owner account age: 14d", "Push burst mismatch", "Affiliation unverified"] },
-    judge: { title: "Judge verdict", items: ["Cross-referenced 4 agents", "Ranked by exploitability", "Attached reasoning per finding"] },
-    pdf: { title: "Artifact", items: ["Severity-graded index", "Agent attribution per finding", "sable-acme-payments-a1c9f2b.pdf"] },
+  const posOf = (id: string) => nodes.find((n) => n.id === id)!;
+  const kindStyle = (n: NodeDef, isActive: boolean) => {
+    const base = "rounded-xl border transition-all duration-200 backdrop-blur-sm";
+    if (isActive) return `${base} bg-foreground text-background shadow-[0_8px_30px_-8px_rgba(0,0,0,0.5)] scale-[1.04]`;
+    if (n.kind === "source") return `${base} bg-surface-2/60 hairline text-foreground/85 hover:text-foreground`;
+    if (n.kind === "artifact") return `${base} bg-primary/10 border-primary/30 text-foreground/90 hover:text-foreground`;
+    if (n.kind === "judge") return `${base} bg-accent/10 border-accent/30 text-foreground/90 hover:text-foreground`;
+    return `${base} glass hairline text-foreground/80 hover:text-foreground`;
   };
 
   return (
@@ -140,77 +207,93 @@ function LiveScanDemo() {
         <div className="flex items-center gap-1.5 px-4 h-9 border-b hairline bg-surface-2/40">
           <span className="h-2 w-2 rounded-full bg-red-400/60" />
           <span className="h-2 w-2 rounded-full bg-yellow-400/60" />
-          <span className="h-2 w-2 rounded-full bg-emerald-400/60" />
-          <span className="ml-3 text-[10.5px] text-muted-foreground font-mono">sable · pipeline · live</span>
-          <span className="ml-auto text-[10.5px] text-muted-foreground">hover a node</span>
+          <span className="h-2 w-2 rounded-full bg-primary/70" />
+          <span className="ml-3 text-[10.5px] text-muted-foreground font-mono">sable · pipeline.diagram</span>
+          <span className="ml-auto text-[10.5px] text-muted-foreground">click a node</span>
         </div>
-        <div className="grid md:grid-cols-[1fr_260px] min-h-[360px]">
-          <div className="relative p-6">
-            <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-6 h-[calc(100%-3rem)] w-[calc(100%-3rem)]">
-              {edges.map(([a, b], i) => {
-                const na = nodes.find((n) => n.id === a)!;
-                const nb = nodes.find((n) => n.id === b)!;
-                const isActive = active === a || active === b;
-                return (
-                  <line
-                    key={i}
-                    x1={na.x} y1={na.y} x2={nb.x} y2={nb.y}
-                    stroke={isActive ? "currentColor" : "currentColor"}
-                    strokeOpacity={isActive ? 0.5 : 0.12}
-                    strokeWidth={isActive ? 0.35 : 0.2}
-                    strokeDasharray={isActive ? "0.6 0.6" : undefined}
-                  >
-                    {isActive && (
-                      <animate attributeName="stroke-dashoffset" from="0" to="-4" dur="0.9s" repeatCount="indefinite" />
-                    )}
-                  </line>
-                );
-              })}
-            </svg>
-            <div className="relative h-[320px]">
+        <div className="grid md:grid-cols-[1fr_320px] min-h-[420px]">
+          <div className="relative p-6 bg-[radial-gradient(circle_at_1px_1px,oklch(1_0_0_/_0.05)_1px,transparent_0)] [background-size:22px_22px]">
+            <div className="relative h-[360px]">
+              {/* Bezier connectors */}
+              <svg className="absolute inset-0 h-full w-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
+                <defs>
+                  <marker id="dot" viewBox="0 0 4 4" refX="2" refY="2" markerWidth="4" markerHeight="4">
+                    <circle cx="2" cy="2" r="1.6" fill="currentColor" />
+                  </marker>
+                </defs>
+                {edges.map(([from, to], i) => {
+                  const na = posOf(from);
+                  const nb = posOf(to);
+                  const isActive = active === from || active === to;
+                  const mx = (na.x + nb.x) / 2;
+                  const path = `M ${na.x} ${na.y} C ${mx} ${na.y}, ${mx} ${nb.y}, ${nb.x} ${nb.y}`;
+                  return (
+                    <g key={i} className={isActive ? "text-foreground" : "text-muted-foreground/30"}>
+                      <path d={path} fill="none" stroke="currentColor" strokeWidth={isActive ? 0.35 : 0.2} strokeLinecap="round" />
+                      {isActive && (
+                        <path d={path} fill="none" stroke="currentColor" strokeWidth={0.45} strokeLinecap="round" strokeDasharray="0.6 1.2">
+                          <animate attributeName="stroke-dashoffset" from="0" to="-6" dur="1.4s" repeatCount="indefinite" />
+                        </path>
+                      )}
+                    </g>
+                  );
+                })}
+              </svg>
+
+              {/* Nodes */}
               {nodes.map((n) => {
                 const isActive = active === n.id;
                 return (
                   <button
                     key={n.id}
+                    onClick={() => setActive(n.id)}
                     onMouseEnter={() => setActive(n.id)}
-                    onFocus={() => setActive(n.id)}
-                    className="absolute -translate-x-1/2 -translate-y-1/2 group outline-none"
+                    className="absolute -translate-x-1/2 -translate-y-1/2 outline-none focus:ring-2 focus:ring-ring rounded-xl"
                     style={{ left: `${n.x}%`, top: `${n.y}%` }}
+                    aria-label={n.label}
                   >
-                    <div
-                      className={`flex items-center gap-2 px-2.5 py-1.5 rounded-full border hairline transition-all ${
-                        isActive
-                          ? "bg-foreground text-background scale-105 shadow-lg"
-                          : "glass text-foreground/80 hover:text-foreground"
-                      }`}
-                    >
-                      <span
-                        className="h-1.5 w-1.5 rounded-full"
-                        style={{ background: "agent" in n && n.agent ? n.color : "currentColor" }}
-                      />
-                      <span className="text-[11px] font-medium tracking-tight whitespace-nowrap">{n.label}</span>
-                    </div>
-                    <div className={`mt-1 text-[9.5px] text-center whitespace-nowrap font-mono transition-opacity ${isActive ? "opacity-70" : "opacity-30"}`}>
-                      {n.sub}
+                    <div className={`px-3 py-2 min-w-[132px] ${kindStyle(n, isActive)}`}>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="h-1.5 w-1.5 rounded-full shrink-0"
+                          style={{ background: n.accent ?? (n.kind === "artifact" ? "var(--color-primary)" : n.kind === "judge" ? "var(--color-accent)" : "currentColor") }}
+                        />
+                        <span className="text-[11.5px] font-medium tracking-tight whitespace-nowrap">{n.label}</span>
+                      </div>
+                      <div className={`mt-0.5 text-[9.5px] uppercase tracking-[0.16em] ${isActive ? "opacity-70" : "opacity-40"}`}>
+                        {n.kind}
+                      </div>
                     </div>
                   </button>
                 );
               })}
             </div>
           </div>
-          <aside className="border-l hairline p-5 bg-surface-2/20 text-left">
-            <div className="text-[9.5px] uppercase tracking-[0.2em] text-muted-foreground/70">Inspecting</div>
-            <div className="mt-1.5 text-[15px] font-medium tracking-tight">{activeNode.label}</div>
-            <div className="text-[11px] text-muted-foreground font-mono">{activeNode.sub}</div>
-            <div className="mt-5 space-y-2">
-              <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70">{details[active].title}</div>
-              {details[active].items.map((it, i) => (
-                <div key={i} className="flex items-start gap-2 text-[11.5px] text-foreground/85">
-                  <span className="mt-1.5 h-1 w-1 rounded-full bg-foreground/40 shrink-0" />
-                  <span className="font-mono leading-[1.5]">{it}</span>
-                </div>
-              ))}
+
+          <aside className="border-l hairline p-5 bg-surface-2/30 text-left overflow-y-auto max-h-[480px]">
+            <div className="text-[9.5px] uppercase tracking-[0.2em] text-primary/80 font-medium">{a.tag}</div>
+            <div className="mt-1.5 text-[16px] font-medium tracking-tight">{activeNode.label}</div>
+            <div className="text-[11.5px] text-muted-foreground">{a.subtitle}</div>
+            <p className="mt-3 text-[12px] leading-[1.55] text-foreground/80">{a.summary}</p>
+
+            <div className="mt-5">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="h-1 w-1 rounded-full bg-accent" />
+                <span className="text-[9.5px] uppercase tracking-[0.2em] text-muted-foreground">{a.input.label}</span>
+              </div>
+              <pre className="text-[10.5px] leading-[1.55] font-mono text-foreground/75 bg-background/60 rounded-md hairline border p-2.5 whitespace-pre-wrap break-words">
+{a.input.body}
+              </pre>
+            </div>
+
+            <div className="mt-4">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="h-1 w-1 rounded-full bg-primary" />
+                <span className="text-[9.5px] uppercase tracking-[0.2em] text-muted-foreground">{a.output.label}</span>
+              </div>
+              <pre className="text-[10.5px] leading-[1.55] font-mono text-foreground/85 bg-background/60 rounded-md hairline border p-2.5 whitespace-pre-wrap break-words">
+{a.output.body}
+              </pre>
             </div>
           </aside>
         </div>
@@ -218,6 +301,7 @@ function LiveScanDemo() {
     </div>
   );
 }
+
 
 function Pipeline() {
   return (
