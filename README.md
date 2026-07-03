@@ -10,17 +10,34 @@ For details on database schemas and system integrations, see the [Technical Docu
 
 ## Key Features
 
-* Local AI Prompt Auditor: Evaluates system prompts and inline code blocks for semantic injection, jailbreaks, and instructions hijacking using local Ollama models with no API keys and zero cloud leakage.
-* Supply Chain Integrity Check: Cross-references package declarations with the live npm registry, checking package age, solo-maintainer flags, and scanning for pre/post-install script vulnerabilities.
-* Vulnerability Scanner (OSV Integration): Directly queries the OSV (Open Source Vulnerability) database to check dependencies against published CVE logs in real-time.
-* Agent Agency Limits: Detects dangerous configurations in agent orchestrators (LangChain, LangGraph, CrewAI, AutoGen) such as excessive execution privileges or missing user verification steps.
-* Security Compliance Mapping: Automatically tags scanner findings with OWASP Top 10 for LLMs (e.g., LLM01, LLM02) and the NIST AI Risk Management Framework (RMF).
-* Repository Watchdog & Sync Policy: Watch GitHub repositories for commits, trigger automatic background scans, and manage global allowlists for authorized MCP servers.
+### 1. Local AI Prompt Auditor
+Evaluates system prompts, templates, and inline code blocks for semantic injection, jailbreaks, and instructions hijacking. All evaluations are performed strictly using local Ollama models (such as `llama-guard3`, `granite-guardian:8b`, or `llama3`) running locally. This ensures no API keys are required and zero proprietary code is leaked to cloud services. It statically flags `<IMPORTANT>` tag insertions, zero-width characters, credential echo requests, data exfiltration lures, and executes an LLM judge on inline variables like `SYSTEM_PROMPT`.
+
+### 2. Supply Chain Integrity Check (Agent 1)
+Cross-references package declarations (such as those from `mcp.json`, `package.json`, or `.vscode/mcp.json`) with the live npm registry API. Specifically, it parses `stdio` configurations invoking remote packages (e.g. `npx`, `bunx`, `uvx`) to flag Remote Code Execution (RCE) on connect risks. It checks packages for:
+* **Pre/Post-Install Scripts:** Flags packages running lifecycle scripts (common vector for malware).
+* **Package Age:** Flags newly published dependencies (younger than 30 days by default), a known indicator of supply-chain attacks.
+* **Maintainer Count:** Flags single-maintainer packages which carry higher compromise risks.
+
+### 3. Vulnerability Scanner (OSV Integration)
+Recursively parses `package.json` and `requirements.txt` manifests filtering for AI-centric dependencies (e.g., `langchain`, `openai`, `@modelcontextprotocol`, `crewai`, `transformers`). It batches these package versions and directly queries the OSV (Open Source Vulnerability) database API in real-time, mapping returned Common Vulnerability Scoring System (CVSS) scores directly to Critical, High, Medium, or Low severities.
+
+### 4. Agent Framework Config Auditor
+Deep-scans AI orchestrator configurations (LangChain, LangGraph, CrewAI, AutoGen, Vercel AI SDK) for dangerously insecure properties. This includes statically identifying variables such as `dangerously_allow_code_execution` set to true, using `PythonREPLTool` without a sandbox, unbounded maximum iterations (`max_iterations = None`), disabled human approval gates for mutating tools (e.g. `needsApproval: false`), or wildcard tool exposures (`allowed_tools: ["*"]`).
+
+### 5. Security Compliance Mapping
+Automatically tags raw scanner findings with recognized international frameworks:
+* **OWASP Top 10 for LLM Applications 2025:** Mapped to LLM01 (Prompt Injection), LLM02 (Data Leakage), LLM03 (Supply Chain Vulnerabilities), and LLM06 (Excessive Agency).
+* **NIST AI Risk Management Framework (RMF) 1.0:** Mapped to MAP-4.1, MEASURE-2.6, MEASURE-2.7, GOVERN-1.1, and MANAGE-2.3 based on deterministic rule associations.
+
+### 6. Declarative Policy Engine & Repository Watchdog
+Enforces organizational security constraints. Blocks `http://` transport schemas in favor of TLS, completely restricts `stdio` via `npx`, manages global `allowed_servers` (allowlist) or `denied_servers` (denylist). Background watchdog sync watches GitHub repositories for commits and triggers automatic background scans using the defined cadence (e.g. every 24 hours).
 
 ---
 
 ## System Architecture
 
+```mermaid
 flowchart TD
     A[GitHub Repository]:::database --> B[Repository Parser]:::default
     B --> C[Agent 1: MCP Server Registry Check]:::highlight
@@ -50,18 +67,18 @@ flowchart TD
 
 ## Execution Workflow
 
-The auditing execution flow runs in a sequence of automated stages:
+The auditing execution flow runs in a sequence of automated, deterministic, and highly parallelized stages:
 
-1. Repository Tree Resolution: The user inputs a repository URL. Ward connects to the GitHub API, recursively walks the codebase file tree using the main branch references, and filters paths matching dependency manifests (package.json, requirements.txt) and prompt templates.
-2. Parallel Agent Dispatch: Ward triggers 5 dedicated compliance agents concurrently:
-    * Agent 1 parses server configurations (e.g., mcp.json) and triggers package info requests to the npm registry to detect solo owners, package ages, and pre/post-install scripts.
-    * Agent 2 walks tool schemas in search of descriptive instructions, highlighting hidden tags or zero-width escape injections.
-    * Agent 3 extracts system templates and sends them to the local Ollama API to run prompt jailbreak/hijacking classification.
-    * Agent 4 checks python/typescript files to flag unsafe configurations like dangerouslyAllowCodeExecution set to true.
-    * Agent 5 collects all package names and queries OSV database API endpoints in a batch to pull published CVEs.
-3. Compliance Mapping: Raw signals from the agents are collected by the Compliance Engine. They are mapped to international frameworks (OWASP Top 10 for LLM Applications and NIST AI RMF).
-4. Local LLM Judge Analysis: All gathered vulnerability signals are aggregated and evaluated by a local LLM Judge. The judge checks for false positives, assigns severity scores (Critical, High, Medium, Low), and writes a remediation summary.
-5. Report Generation & DB Logging: The judge's verdicts are committed as PostgreSQL rows inside Supabase tables. A PDF report containing formatting details, severities, and compliance indices is compiled dynamically and stored in the client cache for download.
+1. **Repository Tree Resolution:** The user inputs a GitHub repository URL or selects one. Ward connects to the GitHub API via a PAT, recursively walks the codebase file tree (ignoring `node_modules`, `dist`, `build`, etc.) on the default branch. It specifically looks up manifest files (`mcp.json`, `package.json`, `requirements.txt`, etc.), agent orchestrator code (`.ts`, `.py`), and prompt files (`.prompt`, `system.md`).
+2. **Parallel Agent Dispatch:** Ward triggers 5 dedicated compliance agents concurrently:
+    * **Agent 1 (MCP Server Scanner):** Parses MCP config servers for `stdio` or `http` transport. Resolves the remote packages and calls the npm registry metadata API. Detects `npx` RCE-on-connect risks, identifies plaintext `http://` connections, and checks package metadata for `install` scripts, age under minimum days, and single-maintainer risks. Applies declarative org policies (allowlists/denylists).
+    * **Agent 2 (Tool Poisoning Detector):** Reads code files defining tools (`defineTool`, `createTool`) scanning for description schemas. Executes regex heuristical checks to find hidden instructions like `<IMPORTANT>` tags, zero-width characters (bypassing filters), credential echo lures, or base64 data exfiltration blocks.
+    * **Agent 3 (Local AI Prompt Auditor):** Extracts committed prompt files and inline prompt templates (e.g., `SYSTEM_PROMPT`). Checks them statically for role-override attempts. For inline variables, sends up to 12 extracted code snippets to a local LLM Judge via Ollama to dynamically evaluate prompt injection vulnerabilities.
+    * **Agent 4 (Framework Config Auditor):** Inspects the orchestrator setups (Vercel AI SDK, Langchain, CrewAI). Scans for risky properties such as `dangerouslyAllowCodeExecution`, unbounded max iterations, wildcard `["*"]` tool exposure, and unsandboxed `PythonREPLTool` or `ShellTool`.
+    * **Agent 5 (Dependency CVE Check):** Aggregates discovered package dependencies (filtering for the AI ecosystem), dedupes them, and batches them into a single HTTP POST request to the `api.osv.dev/v1/querybatch` endpoint. Re-maps CVSS scores to standardized severities.
+3. **Compliance Mapping:** Raw signals from the parallel execution trace are normalized. Findings are systematically tagged with the `OWASP Top 10 for LLMs` and `NIST AI RMF 1.0` frameworks using a static, deterministic map.
+4. **Local LLM Judge Arbitration:** For specific nuances (like inline prompt evaluation), the local LLM evaluates the evidence block to filter false positives and produce a human-readable, technically accurate reasoning string explaining the potential blast radius.
+5. **Report Generation & DB Logging:** Findings are securely stored inside Supabase Postgres tables (`scans` and `findings`). A comprehensive, CISO-ready PDF report is compiled locally using `pdf-lib` detailing severities, coverage counts, and individual compliance tags.
 
 ---
 
