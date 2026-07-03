@@ -68,7 +68,13 @@ function Console() {
       )}
       {view === "history" && <HistoryView setOpenScanId={setOpenScanId} />}
       {view === "policy" && <PolicyView />}
-      {view === "watchlist" && <WatchlistView />}
+      {view === "watchlist" && (
+        <WatchlistView
+          setView={setView}
+          setActiveScanId={setActiveScanId}
+          setOpenScanId={setOpenScanId}
+        />
+      )}
 
       {openScanId && <ScanDetail id={openScanId} onClose={() => setOpenScanId(null)} />}
     </div>
@@ -811,7 +817,7 @@ function PolicyToggle({ label, hint, checked, onChange }: { label: string; hint:
 
 // ---------- Watchlist View ----------
 
-function WatchlistView() {
+function WatchlistView({ setView, setActiveScanId, setOpenScanId }: { setView: (v: View) => void; setActiveScanId: (id: string | null) => void; setOpenScanId: (id: string | null) => void }) {
   const qc = useQueryClient();
   const watched = useQuery({ queryKey: ["watched"], queryFn: () => listWatchedRepos() });
   const repos = useQuery({ queryKey: ["repos"], queryFn: () => listRepos() });
@@ -854,12 +860,26 @@ function WatchlistView() {
                     Every {w.cadence_hours}h · {w.last_scanned_at ? `last scanned ${new Date(w.last_scanned_at).toLocaleString()}` : "not scanned yet"}
                   </div>
                 </div>
-                <button
-                  onClick={async () => { await unwatchRepo({ data: { id: w.id } }); qc.invalidateQueries({ queryKey: ["watched"] }); }}
-                  className="h-8 px-3 rounded-full glass hairline border text-[12px] text-muted-foreground hover:text-foreground transition"
-                >
-                  Remove
-                </button>
+                <div className="flex items-center gap-2">
+                  {w.last_scan_id && (
+                    <button
+                      onClick={() => {
+                        setActiveScanId(w.last_scan_id);
+                        setOpenScanId(w.last_scan_id);
+                        setView("scans");
+                      }}
+                      className="h-8 px-3.5 rounded-full bg-emerald-500 hover:bg-emerald-600 text-black text-[12.5px] font-semibold transition"
+                    >
+                      View Findings
+                    </button>
+                  )}
+                  <button
+                    onClick={async () => { await unwatchRepo({ data: { id: w.id } }); qc.invalidateQueries({ queryKey: ["watched"] }); }}
+                    className="h-8 px-3 rounded-full glass hairline border text-[12px] text-muted-foreground hover:text-foreground transition"
+                  >
+                    Remove
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
