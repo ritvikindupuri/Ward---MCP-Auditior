@@ -270,14 +270,6 @@ function Main({
                   >
                     View Details
                   </button>
-                  <button
-                    onClick={() => {
-                      setActiveScanId(null);
-                    }}
-                    className="h-8 px-3 rounded-full glass hairline border text-[12.5px] text-muted-foreground hover:text-foreground transition"
-                  >
-                    Clear Session
-                  </button>
                 </div>
               </div>
 
@@ -370,8 +362,9 @@ function Main({
       {showPicker && (
         <RepoPicker
           onClose={() => setShowPicker(false)}
-          onScanned={() => {
+          onScanned={(scanId) => {
             setShowPicker(false);
+            setActiveScanId(scanId);
             qc.invalidateQueries({ queryKey: ["scans"] });
           }}
         />
@@ -434,7 +427,7 @@ function ConnectModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
   );
 }
 
-function RepoPicker({ onClose, onScanned }: { onClose: () => void; onScanned: () => void }) {
+function RepoPicker({ onClose, onScanned }: { onClose: () => void; onScanned: (scanId: string) => void }) {
   const repos = useQuery({ queryKey: ["repos"], queryFn: () => listRepos() });
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
@@ -448,7 +441,10 @@ function RepoPicker({ onClose, onScanned }: { onClose: () => void; onScanned: ()
 
   async function scan(full_name: string) {
     setBusy(full_name); setErr(null);
-    try { await startScan({ data: { repo_full_name: full_name } }); onScanned(); }
+    try {
+      const res = await startScan({ data: { repo_full_name: full_name } });
+      onScanned(res.scan_id);
+    }
     catch (e) { setErr(e instanceof Error ? e.message : "Failed"); setBusy(null); }
   }
 
