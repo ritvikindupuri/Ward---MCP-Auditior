@@ -423,8 +423,8 @@ function ScanDetail({ id, onClose }: { id: string; onClose: () => void }) {
           </div>
 
           {scan.status === "running" && (
-            <div className="grid grid-cols-4 gap-2 mb-6">
-              {(["deps", "secrets", "supply", "osint"] as const).map((k) => {
+            <div className="grid grid-cols-3 md:grid-cols-5 gap-2 mb-6">
+              {(["mcp", "tool-poison", "prompt-injection", "agent-config", "ai-deps"] as const).map((k) => {
                 const st = (scan.progress as Record<string, string>)?.[k] ?? "queued";
                 return (
                   <div key={k} className="rounded-lg hairline border p-3">
