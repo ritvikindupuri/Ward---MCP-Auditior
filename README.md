@@ -39,27 +39,37 @@ Enforces organizational security constraints. Blocks `http://` transport schemas
 
 ```mermaid
 flowchart TD
-    A[GitHub Repository]:::database --> B[Repository Parser]:::default
-    B --> C[Agent 1: MCP Server Registry Check]:::highlight
-    B --> D[Agent 2: Tool Poisoning Detector]:::highlight
-    B --> E[Agent 3: Local AI Prompt Auditor]:::highlight
-    B --> F[Agent 4: Framework Config Auditor]:::highlight
-    B --> G[Agent 5: Dependency CVE Check]:::highlight
-    
-    C --> H[npm Registry API]:::api
-    G --> I[OSV Database]:::api
-    E --> J[Local Ollama API: Llama Guard 3]:::api
-    
-    C & D & E & F & G --> K[Compliance Engine]:::default
-    K --> L[OWASP Top 10 for LLMs]:::default
-    K --> M[NIST AI RMF]:::default
-    
-    K --> N[Scan Results Card & Supabase DB]:::database
+    %% Define style variables matching cozy dark tan / gold theme
+    classDef default fill:#27201c,stroke:#dca664,stroke-width:1.5px,color:#f8f6f5;
+    classDef browser fill:#3a2e28,stroke:#dca664,stroke-width:2px,color:#fff;
+    classDef engine fill:#1f1916,stroke:#e85d04,stroke-width:2px,color:#fffaeb;
+    classDef db fill:#2f2520,stroke:#dca664,stroke-width:1.5px,color:#f8f6f5;
 
-    classDef default fill:#171717,stroke:#262626,stroke-width:1px,color:#d4d4d4;
-    classDef highlight fill:#022c22,stroke:#059669,stroke-width:1.5px,color:#34d399;
-    classDef api fill:#1e1b4b,stroke:#4f46e5,stroke-width:1px,color:#c7d2fe;
-    classDef database fill:#0c0a09,stroke:#78716c,stroke-width:1px,color:#e7e5e4;
+    subgraph BROWSER ["💻 Browser Context"]
+        Client["React 19 Frontend"]:::browser
+        Router["TanStack Router / Start"]:::browser
+        Client <--> Router
+    end
+    
+    subgraph USER_MACHINE ["🦙 Local User Machine"]
+        Ollama[("🦙 Ollama Engine")]:::db
+    end
+    
+    subgraph CLOUD ["☁️ Cloud Infrastructure"]
+        DB[("🗄️ Supabase PostgreSQL")]:::db
+    end
+    
+    subgraph SERVICES ["🌐 Remote Services"]
+        GitHub["🐙 GitHub REST API"]:::default
+        NPM["📦 npm Registry API"]:::default
+        OSV["🐛 OSV Database API"]:::default
+    end
+    
+    Router <--> DB
+    Router <--> GitHub
+    Router <--> Ollama
+    Router <--> NPM
+    Router <--> OSV
 ```
 <p align="center">Figure 1: Ward Compliance System Architecture</p>
 

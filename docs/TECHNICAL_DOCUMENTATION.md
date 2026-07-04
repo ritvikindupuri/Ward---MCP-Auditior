@@ -32,36 +32,37 @@ Ward operates as a client-server web application using a local-first analysis mo
 
 ```mermaid
 flowchart TD
-    subgraph Browser Context
-        Client[React 19 Frontend]:::default
-        Router[TanStack Router / Start]:::default
+    %% Define style variables matching cozy dark tan / gold theme
+    classDef default fill:#27201c,stroke:#dca664,stroke-width:1.5px,color:#f8f6f5;
+    classDef browser fill:#3a2e28,stroke:#dca664,stroke-width:2px,color:#fff;
+    classDef engine fill:#1f1916,stroke:#e85d04,stroke-width:2px,color:#fffaeb;
+    classDef db fill:#2f2520,stroke:#dca664,stroke-width:1.5px,color:#f8f6f5;
+
+    subgraph BROWSER ["💻 Browser Context"]
+        Client["React 19 Frontend"]:::browser
+        Router["TanStack Router / Start"]:::browser
         Client <--> Router
     end
     
-    subgraph Local User Machine
-        Ollama[Ollama Engine]:::highlight
+    subgraph USER_MACHINE ["🦙 Local User Machine"]
+        Ollama[("🦙 Ollama Engine")]:::db
     end
     
-    subgraph Cloud Infrastructure
-        DB[Supabase PostgreSQL]:::database
+    subgraph CLOUD ["☁️ Cloud Infrastructure"]
+        DB[("🗄️ Supabase PostgreSQL")]:::db
     end
     
-    subgraph Remote Services
-        GitHub[GitHub REST API]:::api
-        npm[npm Registry API]:::api
-        OSV[OSV Database API]:::api
+    subgraph SERVICES ["🌐 Remote Services"]
+        GitHub["🐙 GitHub REST API"]:::default
+        NPM["📦 npm Registry API"]:::default
+        OSV["🐛 OSV Database API"]:::default
     end
     
     Router <--> DB
     Router <--> GitHub
     Router <--> Ollama
-    Router <--> npm
+    Router <--> NPM
     Router <--> OSV
-
-    classDef default fill:#171717,stroke:#262626,stroke-width:1px,color:#d4d4d4;
-    classDef highlight fill:#022c22,stroke:#059669,stroke-width:1.5px,color:#34d399;
-    classDef api fill:#1e1b4b,stroke:#4f46e5,stroke-width:1px,color:#c7d2fe;
-    classDef database fill:#0c0a09,stroke:#78716c,stroke-width:1px,color:#e7e5e4;
 ```
 <p align="center">Figure 1: Ward System Integration and Client-Server Boundary Architecture</p>
 
@@ -78,30 +79,40 @@ When an audit is triggered, Ward dispatches a pipeline of five specialized, para
 
 ```mermaid
 flowchart TD
-    Repo[GitHub Repository Tree]:::database --> Parser[Manifest & Source Parser]:::default
+    %% Style declarations
+    classDef default fill:#27201c,stroke:#dca664,stroke-width:1.5px,color:#f8f6f5;
+    classDef start fill:#3a2e28,stroke:#dca664,stroke-width:2px,color:#fff;
+    classDef db fill:#2f2520,stroke:#dca664,stroke-width:1.5px,color:#f8f6f5;
+    classDef engine fill:#1f1916,stroke:#e85d04,stroke-width:2px,color:#fffaeb;
+
+    Repo[("🐙 GitHub Repository Tree")]:::db --> Parser["⚙️ Manifest & Source Parser"]:::default
     
-    subgraph Parallel Security Agent Stack
-        A1[Agent 1: MCP Server Scanner]:::highlight
-        A2[Agent 2: Tool Poisoning Detector]:::highlight
-        A3[Agent 3: Local AI Prompt Auditor]:::highlight
-        A4[Agent 4: Orchestrator Config Auditor]:::highlight
-        A5[Agent 5: AI-stack CVE Checker]:::highlight
+    subgraph STACK ["🛡️ Parallel Security Agent Stack"]
+        A1["🔍 Agent 1: MCP Server Scanner"]:::default
+        A2["🧪 Agent 2: Tool Poisoning Detector"]:::default
+        A3["🧠 Agent 3: Local AI Prompt Auditor"]:::default
+        A4["🧱 Agent 4: Orchestrator Config Auditor"]:::default
+        A5["📦 Agent 5: AI-stack CVE Checker"]:::default
     end
     
-    Parser --> A1 & A2 & A3 & A4 & A5
+    Parser --> A1
+    Parser --> A2
+    Parser --> A3
+    Parser --> A4
+    Parser --> A5
     
-    A1 --> npm[npm Registry API]:::api
-    A3 --> Ollama[Local Ollama Inference]:::api
-    A5 --> OSV[OSV Database API]:::api
+    A1 --> NPM[("📦 npm Registry API")]:::db
+    A3 --> Ollama[("🦙 Local Ollama Inference")]:::db
+    A5 --> OSV[("🐛 OSV Database API")]:::db
     
-    A1 & A2 & A3 & A4 & A5 --> Comp[Compliance Tagging Engine]:::default
-    Comp --> Judge[Local LLM Judge Verdicts]:::default
-    Judge --> Report[PDF Compiler & Supabase Commit]:::database
-
-    classDef default fill:#171717,stroke:#262626,stroke-width:1px,color:#d4d4d4;
-    classDef highlight fill:#022c22,stroke:#059669,stroke-width:1.5px,color:#34d399;
-    classDef api fill:#1e1b4b,stroke:#4f46e5,stroke-width:1px,color:#c7d2fe;
-    classDef database fill:#0c0a09,stroke:#78716c,stroke-width:1px,color:#e7e5e4;
+    A1 --> Comp["⚖️ Compliance Tagging Engine"]:::engine
+    A2 --> Comp
+    A3 --> Comp
+    A4 --> Comp
+    A5 --> Comp
+    
+    Comp --> Judge["⚖️ Local LLM Judge Verdicts"]:::engine
+    Judge --> Report[("📄 PDF Report & DB Commit")]:::db
 ```
 <p align="center">Figure 2: Multi-Agent Analysis and Compliance Evaluation Pipeline</p>
 
