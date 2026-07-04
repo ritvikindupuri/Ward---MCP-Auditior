@@ -37,88 +37,25 @@ Enforces organizational security constraints. Blocks `http://` transport schemas
 
 ## System Architecture
 
-```mermaid
-flowchart TD
-    %% Define styles matching cozy dark tan / gold theme
-    classDef default fill:#27201c,stroke:#dca664,stroke-width:1.5px,color:#f8f6f5;
-    classDef source fill:#3a2e28,stroke:#dca664,stroke-width:2px,color:#fff;
-    classDef agent fill:#221b18,stroke:#dca664,stroke-width:1.5px,stroke-dasharray: 4 4,color:#e7e2df;
-    classDef engine fill:#1f1916,stroke:#e85d04,stroke-width:2px,color:#fffaeb;
-    classDef db fill:#2f2520,stroke:#dca664,stroke-width:1.5px,color:#f8f6f5;
+Ward runs as a single **sequential** server-side pipeline (a TanStack Start server function), not a fan-out of parallel workers. A repo tree walk feeds five compliance agents that each run to completion — in order — before the next one starts. Every agent tags and saves its own findings to Supabase the instant it creates them, so there's no separate "mapping" step waiting at the end. Only one agent (Agent 3) calls the local LLM. Once all five agents finish, the scan is marked complete; generating the PDF report is a separate, on-demand action a user triggers afterward, not an automatic last stage.
 
-    subgraph INPUT ["Input Source"]
-        Repo["🐙 GitHub Repository"]:::source
-        Parser["⚙️ Repo Tree Parser"]:::default
-        Repo --> Parser
-    end
-
-    subgraph PIPELINE ["AI Compliance Pipeline"]
-        A1["🔍 Agent 1: MCP Server Scanner"]:::agent
-        A2["🧪 Agent 2: Tool Poisoning Detector"]:::agent
-        A3["🧠 Agent 3: Local Prompt Auditor"]:::agent
-        A4["🧱 Agent 4: Config Auditor"]:::agent
-        A5["📦 Agent 5: CVE Dependency Check"]:::agent
-    end
-
-    Parser --> A1
-    Parser --> A2
-    Parser --> A3
-    Parser --> A4
-    Parser --> A5
-
-    subgraph EXTERNALS ["External Verification Ports"]
-        NPM["📦 npm Registry"]:::db
-        OLLAMA["🦙 Local Ollama Service"]:::db
-        OSV["🐛 OSV API"]:::db
-    end
-
-    A1 --> NPM
-    A3 --> OLLAMA
-    A5 --> OSV
-
-    subgraph COMPLIANCE ["Policy Validation"]
-        Engine{"⚖️ Compliance Engine"}:::engine
-        OWASP["🛡️ OWASP LLM Top 10"]:::default
-        NIST["📋 NIST AI Risk Framework"]:::default
-        
-        Engine --> OWASP
-        Engine --> NIST
-    end
-
-    A1 --> Engine
-    A2 --> Engine
-    A3 --> Engine
-    A4 --> Engine
-    A5 --> Engine
-
-    subgraph OUTPUT ["Outputs & Reporting"]
-        DB["🗄️ Supabase DB logs"]:::db
-        PDF["📄 PDF Auditor Report"]:::default
-        Console["💻 Live Console cards"]:::default
-    end
-
-    Engine --> DB
-    Engine --> PDF
-    Engine --> Console
-```
-<p align="center">Figure 1: Ward Compliance System Architecture</p>
+![Ward Execution Architecture](docs/images/ward-execution-workflow.png)
+<p align="center">Figure 1: Ward's actual execution flow, agent-by-agent</p>
 
 ---
 
 ## Execution Workflow
 
-The auditing execution flow runs in a sequence of automated, deterministic, and highly parallelized stages:
+Ward's scan pipeline runs as a single sequential job — each agent executes fully, tags and saves its own findings, and only then does the next agent start. There is no parallel fan-out.
 
-1. **Repository Tree Resolution:** The user inputs a GitHub repository URL or selects one. Ward connects to the GitHub API via a PAT, recursively walks the codebase file tree (ignoring `node_modules`, `dist`, `build`, etc.) on the default branch. It specifically looks up manifest files (`mcp.json`, `package.json`, `requirements.txt`, etc.), agent orchestrator code (`.ts`, `.py`), and prompt files (`.prompt`, `system.md`).
-2. **Parallel Agent Dispatch:** Ward triggers 5 dedicated compliance agents concurrently:
-    * **Agent 1 (MCP Server Scanner):** Parses MCP config servers for `stdio` or `http` transport. Resolves the remote packages and calls the npm registry metadata API. Detects `npx` RCE-on-connect risks, identifies plaintext `http://` connections, and checks package metadata for `install` scripts, age under minimum days, and single-maintainer risks. Applies declarative org policies (allowlists/denylists).
-    * **Agent 2 (Tool Poisoning Detector):** Reads code files defining tools (`defineTool`, `createTool`) scanning for description schemas. Executes regex heuristical checks to find hidden instructions like `<IMPORTANT>` tags, zero-width characters (bypassing filters), credential echo lures, or base64 data exfiltration blocks.
-    * **Agent 3 (Local AI Prompt Auditor):** Extracts committed prompt files and inline prompt templates (e.g., `SYSTEM_PROMPT`). Checks them statically for role-override attempts. For inline variables, sends up to 12 extracted code snippets to a local LLM Judge via Ollama to dynamically evaluate prompt injection vulnerabilities.
-    * **Agent 4 (Framework Config Auditor):** Inspects the orchestrator setups (Vercel AI SDK, Langchain, CrewAI). Scans for risky properties such as `dangerouslyAllowCodeExecution`, unbounded max iterations, wildcard `["*"]` tool exposure, and unsandboxed `PythonREPLTool` or `ShellTool`.
-    * **Agent 5 (Dependency CVE Check):** Aggregates discovered package dependencies (filtering for the AI ecosystem), dedupes them, and batches them into a single HTTP POST request to the `api.osv.dev/v1/querybatch` endpoint. Re-maps CVSS scores to standardized severities.
-3. **Compliance Mapping:** Raw signals from the parallel execution trace are normalized. Findings are systematically tagged with the `OWASP Top 10 for LLMs` and `NIST AI RMF 1.0` frameworks using a static, deterministic map.
-4. **Local LLM Judge Arbitration:** For specific nuances (like inline prompt evaluation), the local LLM evaluates the evidence block to filter false positives and produce a human-readable, technically accurate reasoning string explaining the potential blast radius.
-5. **Report Generation & DB Logging:** Findings are securely stored inside Supabase Postgres tables (`scans` and `findings`). A comprehensive, CISO-ready PDF report is compiled locally using `pdf-lib` detailing severities, coverage counts, and individual compliance tags.
+1. **Repository Tree Resolution:** The user inputs a GitHub repository URL. Ward connects to the GitHub API via a PAT and recursively walks the codebase file tree on the default branch (ignoring `node_modules`, `dist`, `build`, etc.), looking for manifest files (`mcp.json`, `package.json`, `requirements.txt`), agent orchestrator code, and prompt files.
+2. **Agent 1 — MCP Server Scanner:** Parses MCP config servers for `stdio`/`http` transport, resolves packages against the npm registry metadata API, and flags `npx` RCE-on-connect risk, plaintext `http://` connections, install scripts, package age, and single-maintainer risk. Applies the org's allow/deny-list policy. Tags each finding (OWASP/NIST) and saves it immediately.
+3. **Agent 2 — Tool Poisoning Detector:** Scans tool-definition code (`defineTool`, `createTool`) for hidden instructions, `<IMPORTANT>` tags, zero-width characters, credential-echo lures, or base64 exfiltration blocks. Tags and saves findings immediately.
+4. **Agent 3 — Prompt Injection Auditor:** Statically checks committed prompt files and inline `SYSTEM_PROMPT` templates for role-override attempts. This is the **only** agent that calls the local LLM — it sends extracted snippets to whichever model is running in Ollama (auto-detecting Llama Guard 3, Granite Guardian, or Llama 3) to judge injection risk and generate a plain-language reasoning string. Tags and saves findings immediately.
+5. **Agent 4 — Agent Framework Config Auditor:** Inspects LangChain/CrewAI/AI-SDK setups for `dangerouslyAllowCodeExecution`, unbounded max iterations, wildcard `["*"]` tool exposure, and unsandboxed `PythonREPLTool`/`ShellTool`. Tags and saves findings immediately.
+6. **Agent 5 — Dependency CVE Check:** Batches AI-ecosystem dependencies into a single request to `api.osv.dev/v1/querybatch` and remaps CVSS scores to standardized severities. Tags and saves findings immediately.
+7. **Scan Marked Complete:** Once all five agents finish, the scan's status and summary counts are written to the `scans` table in Supabase.
+8. **PDF Report (on-demand):** Separately, when a user clicks "Generate Report," Ward reads every stored finding for that scan from Supabase and builds a report locally with `pdf-lib`. This is a distinct, user-triggered action — it does not run automatically as part of the scan.
 
 ---
 
