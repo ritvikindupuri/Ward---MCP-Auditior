@@ -48,7 +48,8 @@ flowchart TD
     subgraph BROWSER ["💻 Browser Context"]
         Client["React 19 Frontend"]:::browser
         Router["TanStack Router / Start"]:::browser
-        Client <--> Router
+        Client --> Router
+        Router --> Client
     end
     
     subgraph USER_MACHINE ["🦙 Local User Machine"]
@@ -65,11 +66,16 @@ flowchart TD
         OSV["🐛 OSV Database API"]:::default
     end
     
-    Router <--> DB
-    Router <--> GitHub
-    Router <--> Ollama
-    Router <--> NPM
-    Router <--> OSV
+    Router --> DB
+    DB --> Router
+    Router --> GitHub
+    GitHub --> Router
+    Router --> Ollama
+    Ollama --> Router
+    Router --> NPM
+    NPM --> Router
+    Router --> OSV
+    OSV --> Router
 ```
 <p align="center">Figure 1: Ward Compliance System Architecture</p>
 
