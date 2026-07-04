@@ -290,16 +290,16 @@ function Main({
                     <div>Repo URL: <a href={activeScan.repo_url} target="_blank" rel="noreferrer" className="text-white hover:underline truncate block">{activeScan.repo_url}</a></div>
                     <div>Full Name: <span className="text-white">{activeScan.repo_full_name}</span></div>
                     <div>Scanned At: <span className="text-white">{activeScan.created_at ? new Date(activeScan.created_at).toLocaleString() : "—"}</span></div>
-                    <div>Status: <span className="text-emerald-400">SYNCED & INDEXED</span></div>
+                    <div>Status: <span className="text-accent">SYNCED & INDEXED</span></div>
                   </div>
                 </div>
               )}
 
               {filter === "judge" && (
                 <div className="p-5 rounded-xl border border-white/5 bg-white/[0.01] text-left space-y-3">
-                  <h3 className="text-[15px] font-bold text-white tracking-tight">LLM Arbitration Ledger</h3>
+                  <h3 className="text-[15px] font-bold text-white tracking-tight">Judge Audit Summary</h3>
                   <p className="text-[13px] text-muted-foreground leading-normal">
-                    The Local LLM Judge has processed all {activeFindings.length} findings. Deduplication is complete, severities have been validated against active safety policies, and remediation advisories have been committed to Supabase logs.
+                    The Judge has audited all {activeFindings.length} findings. Vulnerability severities have been validated against active safety policies, and remediation advisories have been committed to log archives.
                   </p>
                 </div>
               )}
@@ -312,7 +312,7 @@ function Main({
                   </p>
                   <button
                     onClick={downloadActiveReport} disabled={downloading || activeScan.status !== "complete"}
-                    className="mt-2 h-9 px-5 rounded-full bg-emerald-500 hover:bg-emerald-600 text-black text-[13px] font-semibold transition disabled:opacity-40"
+                    className="mt-2 h-9 px-5 rounded-full bg-accent hover:bg-accent/90 text-accent-foreground text-[13px] font-semibold transition disabled:opacity-40"
                   >
                     {downloading ? "Compiling Report..." : "Trigger Download PDF"}
                   </button>
@@ -625,21 +625,21 @@ function N8NNodeGraph({
       {/* SVG Wires Layer */}
       <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-40" viewBox="0 0 100 100" preserveAspectRatio="none">
         {/* Source to Agents */}
-        <path d="M 15 50 C 22 50, 22 18, 35 18" fill="none" stroke={filter === "mcp" ? "#34d399" : "rgba(255,255,255,0.08)"} strokeWidth="0.3" />
-        <path d="M 15 50 C 22 50, 22 34, 35 34" fill="none" stroke={filter === "tool-poison" ? "#34d399" : "rgba(255,255,255,0.08)"} strokeWidth="0.3" />
-        <path d="M 15 50 C 22 50, 22 50, 35 50" fill="none" stroke={filter === "prompt-injection" ? "#34d399" : "rgba(255,255,255,0.08)"} strokeWidth="0.3" />
-        <path d="M 15 50 C 22 50, 22 66, 35 66" fill="none" stroke={filter === "agent-config" ? "#34d399" : "rgba(255,255,255,0.08)"} strokeWidth="0.3" />
-        <path d="M 15 50 C 22 50, 22 82, 35 82" fill="none" stroke={filter === "ai-deps" ? "#34d399" : "rgba(255,255,255,0.08)"} strokeWidth="0.3" />
+        <path d="M 15 50 C 22 50, 22 18, 35 18" fill="none" stroke={filter === "mcp" ? "var(--color-accent)" : "rgba(255,255,255,0.08)"} strokeWidth="0.3" />
+        <path d="M 15 50 C 22 50, 22 34, 35 34" fill="none" stroke={filter === "tool-poison" ? "var(--color-accent)" : "rgba(255,255,255,0.08)"} strokeWidth="0.3" />
+        <path d="M 15 50 C 22 50, 22 50, 35 50" fill="none" stroke={filter === "prompt-injection" ? "var(--color-accent)" : "rgba(255,255,255,0.08)"} strokeWidth="0.3" />
+        <path d="M 15 50 C 22 50, 22 66, 35 66" fill="none" stroke={filter === "agent-config" ? "var(--color-accent)" : "rgba(255,255,255,0.08)"} strokeWidth="0.3" />
+        <path d="M 15 50 C 22 50, 22 82, 35 82" fill="none" stroke={filter === "ai-deps" ? "var(--color-accent)" : "rgba(255,255,255,0.08)"} strokeWidth="0.3" />
 
         {/* Agents to Judge */}
-        <path d="M 65 18 C 73 18, 73 50, 80 50" fill="none" stroke={filter === "mcp" ? "#34d399" : "rgba(255,255,255,0.08)"} strokeWidth="0.3" />
-        <path d="M 65 34 C 73 34, 73 50, 80 50" fill="none" stroke={filter === "tool-poison" ? "#34d399" : "rgba(255,255,255,0.08)"} strokeWidth="0.3" />
-        <path d="M 65 50 C 73 50, 73 50, 80 50" fill="none" stroke={filter === "prompt-injection" ? "#34d399" : "rgba(255,255,255,0.08)"} strokeWidth="0.3" />
-        <path d="M 65 66 C 73 66, 73 50, 80 50" fill="none" stroke={filter === "agent-config" ? "#34d399" : "rgba(255,255,255,0.08)"} strokeWidth="0.3" />
-        <path d="M 65 82 C 73 82, 73 50, 80 50" fill="none" stroke={filter === "ai-deps" ? "#34d399" : "rgba(255,255,255,0.08)"} strokeWidth="0.3" />
+        <path d="M 65 18 C 73 18, 73 50, 80 50" fill="none" stroke={filter === "mcp" ? "var(--color-accent)" : "rgba(255,255,255,0.08)"} strokeWidth="0.3" />
+        <path d="M 65 34 C 73 34, 73 50, 80 50" fill="none" stroke={filter === "tool-poison" ? "var(--color-accent)" : "rgba(255,255,255,0.08)"} strokeWidth="0.3" />
+        <path d="M 65 50 C 73 50, 73 50, 80 50" fill="none" stroke={filter === "prompt-injection" ? "var(--color-accent)" : "rgba(255,255,255,0.08)"} strokeWidth="0.3" />
+        <path d="M 65 66 C 73 66, 73 50, 80 50" fill="none" stroke={filter === "agent-config" ? "var(--color-accent)" : "rgba(255,255,255,0.08)"} strokeWidth="0.3" />
+        <path d="M 65 82 C 73 82, 73 50, 80 50" fill="none" stroke={filter === "ai-deps" ? "var(--color-accent)" : "rgba(255,255,255,0.08)"} strokeWidth="0.3" />
 
         {/* Judge to Report */}
-        <path d="M 88 50 H 92" fill="none" stroke={filter === "pdf" ? "#34d399" : "rgba(255,255,255,0.08)"} strokeWidth="0.3" />
+        <path d="M 88 50 H 92" fill="none" stroke={filter === "pdf" ? "var(--color-accent)" : "rgba(255,255,255,0.08)"} strokeWidth="0.3" />
       </svg>
 
       {/* Nodes Grid */}
@@ -650,11 +650,11 @@ function N8NNodeGraph({
             onClick={() => setFilter("all")}
             className={`w-[125px] p-3 rounded-xl border text-center flex flex-col items-center gap-2 transition-all cursor-pointer ${
               filter === "all"
-                ? "bg-white/5 border-emerald-500/50 shadow-[0_8px_30px_rgba(52,211,153,0.06)]"
+                ? "bg-white/5 border-accent/50 shadow-[0_8px_30px_rgba(var(--color-accent),0.06)]"
                 : "bg-black/40 border-white/5 hover:border-white/10"
             }`}
           >
-            <div className={`p-2 rounded-lg border text-white ${filter === "all" ? "bg-emerald-500/10 border-emerald-500/20" : "bg-black/30 border-white/5"}`}>
+            <div className={`p-2 rounded-lg border text-white ${filter === "all" ? "bg-accent/10 border-accent/20 text-accent" : "bg-black/30 border-white/5"}`}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-5 w-5">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
               </svg>
@@ -692,12 +692,12 @@ function N8NNodeGraph({
                 onClick={() => setFilter(a.id)}
                 className={`w-[180px] p-2 rounded-xl border text-left flex items-center gap-3.5 transition-all cursor-pointer ${
                   isActive
-                    ? "bg-white/5 border-emerald-500/50 shadow-[0_8px_30px_rgba(52,211,153,0.06)] scale-[1.03]"
+                    ? "bg-white/5 border-accent/50 shadow-[0_8px_30px_rgba(var(--color-accent),0.06)] scale-[1.03]"
                     : "bg-black/40 border-white/5 hover:border-white/10"
                 }`}
               >
                 <div className={`p-1.5 rounded-lg border shrink-0 ${
-                  isActive ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-black/30 border-white/5 text-muted-foreground"
+                  isActive ? "bg-accent/10 border-accent/20 text-accent" : "bg-black/30 border-white/5 text-muted-foreground"
                 }`}>
                   <RobotIcon className="h-4 w-4" />
                 </div>
@@ -743,11 +743,11 @@ function N8NNodeGraph({
             }}
             className={`w-[125px] p-3 rounded-xl border text-center flex flex-col items-center gap-2 transition-all cursor-pointer ${
               filter === "pdf"
-                ? "bg-white/5 border-emerald-500/50 shadow-[0_8px_30px_rgba(52,211,153,0.06)]"
+                ? "bg-white/5 border-accent/50 shadow-[0_8px_30px_rgba(var(--color-accent),0.06)]"
                 : "bg-black/40 border-white/5 hover:border-white/10"
             }`}
           >
-            <div className="p-2 rounded-lg border bg-black/30 border-white/5 text-emerald-400">
+            <div className="p-2 rounded-lg border bg-black/30 border-white/5 text-accent">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-5 w-5">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                 <polyline points="14 2 14 8 20 8" />
@@ -828,7 +828,7 @@ function ScanDetail({ id, onClose }: { id: string; onClose: () => void }) {
             <button
               onClick={() => setActiveTab("findings")}
               className={`pb-2.5 font-medium border-b-2 transition-all ${
-                activeTab === "findings" ? "border-emerald-400 text-white" : "border-transparent text-muted-foreground hover:text-white"
+                activeTab === "findings" ? "border-accent text-white" : "border-transparent text-muted-foreground hover:text-white"
               }`}
             >
               Vulnerability Findings
@@ -836,7 +836,7 @@ function ScanDetail({ id, onClose }: { id: string; onClose: () => void }) {
             <button
               onClick={() => setActiveTab("chat")}
               className={`pb-2.5 font-medium border-b-2 transition-all ${
-                activeTab === "chat" ? "border-emerald-400 text-white" : "border-transparent text-muted-foreground hover:text-white"
+                activeTab === "chat" ? "border-accent text-white" : "border-transparent text-muted-foreground hover:text-white"
               }`}
             >
               Chat with AI Auditor
@@ -862,16 +862,16 @@ function ScanDetail({ id, onClose }: { id: string; onClose: () => void }) {
                     <div>Repo URL: <a href={scan.repo_url} target="_blank" rel="noreferrer" className="text-white hover:underline truncate block">{scan.repo_url}</a></div>
                     <div>Full Name: <span className="text-white">{scan.repo_full_name}</span></div>
                     <div>Scanned At: <span className="text-white">{scan.created_at ? new Date(scan.created_at).toLocaleString() : "—"}</span></div>
-                    <div>Status: <span className="text-emerald-400">SYNCED & INDEXED</span></div>
+                    <div>Status: <span className="text-accent">SYNCED & INDEXED</span></div>
                   </div>
                 </div>
               )}
 
               {filter === "judge" && (
                 <div className="p-5 rounded-xl border border-white/5 bg-white/[0.01] text-left space-y-3">
-                  <h3 className="text-[15px] font-bold text-white tracking-tight">LLM Arbitration Ledger</h3>
+                  <h3 className="text-[15px] font-bold text-white tracking-tight">Judge Audit Summary</h3>
                   <p className="text-[13px] text-muted-foreground leading-normal">
-                    The Local LLM Judge has processed all {findings.length} findings. Deduplication is complete, severities have been validated against active safety policies, and remediation advisories have been committed to Supabase logs.
+                    The Judge has audited all {findings.length} findings. Vulnerability severities have been validated against active safety policies, and remediation advisories have been committed to log archives.
                   </p>
                 </div>
               )}
@@ -884,7 +884,7 @@ function ScanDetail({ id, onClose }: { id: string; onClose: () => void }) {
                   </p>
                   <button
                     onClick={download} disabled={downloading || scan.status !== "complete"}
-                    className="mt-2 h-9 px-5 rounded-full bg-emerald-500 hover:bg-emerald-600 text-black text-[13px] font-semibold transition disabled:opacity-40"
+                    className="mt-2 h-9 px-5 rounded-full bg-accent hover:bg-accent/90 text-accent-foreground text-[13px] font-semibold transition disabled:opacity-40"
                   >
                     {downloading ? "Compiling Report..." : "Trigger Download PDF"}
                   </button>
@@ -989,7 +989,7 @@ function FormattedJudgeReasoning({ text }: { text: string }) {
         if (trimmed.startsWith("**") && trimmed.endsWith("**")) {
           const content = trimmed.replace(/\*\*/g, "");
           return (
-            <h4 key={idx} className="text-[12px] font-bold text-emerald-400 uppercase tracking-wider mt-3 mb-1">
+            <h4 key={idx} className="text-[12px] font-bold text-accent uppercase tracking-wider mt-3 mb-1">
               {content}
             </h4>
           );
@@ -1000,7 +1000,7 @@ function FormattedJudgeReasoning({ text }: { text: string }) {
           const body = parts.slice(1).join(":**").trim();
           return (
             <div key={idx} className="mt-2">
-              <span className="text-[11.5px] font-bold text-emerald-400 uppercase tracking-wider mr-1.5">{header}:</span>
+              <span className="text-[11.5px] font-bold text-accent uppercase tracking-wider mr-1.5">{header}:</span>
               <span className="text-[13px] text-white/90">{body}</span>
             </div>
           );
@@ -1010,7 +1010,7 @@ function FormattedJudgeReasoning({ text }: { text: string }) {
           const content = trimmed.substring(1).trim();
           return (
             <div key={idx} className="flex items-start gap-2 pl-2 my-1">
-              <span className="text-emerald-400 text-[14px] leading-none select-none mt-0.5">•</span>
+              <span className="text-accent text-[14px] leading-none select-none mt-0.5">•</span>
               <span className="text-[13px] text-muted-foreground leading-normal">{content}</span>
             </div>
           );
@@ -1064,7 +1064,12 @@ function FindingRow({ f }: { f: Awaited<ReturnType<typeof getScan>>["findings"][
         <div className="mt-4 pt-4 border-t border-white/5 space-y-4 text-[13px] animate-slide-down">
           {f.judge_reasoning && (
             <div>
-              <div className="text-[9px] font-mono uppercase tracking-[0.2em] text-emerald-400 font-semibold mb-1">Judge Verdict · {f.judge_verdict ?? "CONFIRMED"}</div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Judge Verdict:</span>
+                <span className="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-accent/15 text-accent border border-accent/20">
+                  {f.judge_verdict ?? "CONFIRMED"}
+                </span>
+              </div>
               <FormattedJudgeReasoning text={f.judge_reasoning} />
             </div>
           )}
@@ -1078,7 +1083,7 @@ function FindingRow({ f }: { f: Awaited<ReturnType<typeof getScan>>["findings"][
             </div>
           )}
 
-          <div className="p-3.5 rounded-lg bg-emerald-500/5 border border-emerald-500/10 font-mono text-[11.5px] leading-[1.5]">
+          <div className="p-3.5 rounded-lg bg-accent/5 border border-accent/10 font-mono text-[11.5px] leading-[1.5]">
             <span className="text-white font-semibold block mb-0.5 font-sans text-[13px] tracking-tight">Security Remediation:</span>
             <span className="text-muted-foreground">{remediation}</span>
           </div>
@@ -1435,7 +1440,7 @@ function ChatTab({ findings }: { findings: any[] }) {
   return (
     <div className="space-y-4 flex flex-col min-h-[380px] bg-black/20 rounded-2xl border border-white/5 p-4 text-left">
       <div className="flex items-center justify-between border-b border-white/5 pb-2">
-        <span className="text-[11px] font-semibold text-emerald-400 uppercase tracking-wider font-mono">Chat Session</span>
+        <span className="text-[11px] font-semibold text-accent uppercase tracking-wider font-mono">Chat Session</span>
         <button
           type="button"
           onClick={() => setMessages([{ role: "assistant", content: "Chat cleared. Ask me anything about the scan." }])}
@@ -1449,7 +1454,7 @@ function ChatTab({ findings }: { findings: any[] }) {
         {messages.map((m, idx) => (
           <div key={idx} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[85%] rounded-xl px-3 py-2 text-[12.5px] leading-relaxed ${
-              m.role === 'user' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' : 'bg-white/5 text-muted-foreground border border-white/5'
+              m.role === 'user' ? 'bg-accent/10 border border-accent/20 text-accent' : 'bg-white/5 text-muted-foreground border border-white/5'
             }`}>
               <span className="font-mono text-[9px] text-white/40 block mb-1 uppercase tracking-wider">{m.role}</span>
               <p className="whitespace-pre-wrap">{m.content}</p>
@@ -1459,7 +1464,7 @@ function ChatTab({ findings }: { findings: any[] }) {
         {loading && (
           <div className="flex justify-start">
             <div className="bg-white/5 rounded-xl px-3 py-2 text-[12px] text-muted-foreground flex items-center gap-2 border border-white/5">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
+              <span className="h-1.5 w-1.5 rounded-full bg-accent animate-ping" />
               <span>AI Auditor is analyzing...</span>
             </div>
           </div>
@@ -1473,12 +1478,12 @@ function ChatTab({ findings }: { findings: any[] }) {
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask a question about the findings..."
           disabled={loading}
-          className="flex-1 h-9 rounded-lg bg-black/40 border border-white/5 px-3 text-[12.5px] outline-none focus:border-emerald-500/50 text-white placeholder:text-muted-foreground/30 transition-all font-sans"
+          className="flex-1 h-9 rounded-lg bg-black/40 border border-white/5 px-3 text-[12.5px] outline-none focus:border-accent/50 text-white placeholder:text-muted-foreground/30 transition-all font-sans"
         />
         <button
           type="submit"
           disabled={loading || !input.trim()}
-          className="h-9 px-4 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-black text-[12.5px] font-semibold disabled:opacity-50 transition-all font-sans"
+          className="h-9 px-4 rounded-lg bg-accent hover:bg-accent/90 text-accent-foreground text-[12.5px] font-semibold disabled:opacity-50 transition-all font-sans"
         >
           Send
         </button>
