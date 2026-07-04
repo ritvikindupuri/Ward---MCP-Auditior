@@ -45,25 +45,25 @@ flowchart TD
     classDef engine fill:#1f1916,stroke:#e85d04,stroke-width:2px,color:#fffaeb;
     classDef db fill:#2f2520,stroke:#dca664,stroke-width:1.5px,color:#f8f6f5;
 
-    subgraph BROWSER ["fa:fa-window-maximize Browser Context"]
-        Client["fa:fa-desktop React 19 Frontend"]:::browser
-        Router["fa:fa-random TanStack Router / Start"]:::browser
+    subgraph BROWSER ["Browser Context"]
+        Client["💻 React 19 Frontend"]:::browser
+        Router["⚙️ TanStack Router / Start"]:::browser
         Client --> Router
         Router --> Client
     end
     
-    subgraph USER_MACHINE ["fa:fa-laptop Local User Machine"]
-        Ollama[("fa:fa-robot Ollama Engine")]:::db
+    subgraph USER_MACHINE ["Local User Machine"]
+        Ollama["🦙 Ollama Engine"]:::db
     end
     
-    subgraph CLOUD ["fa:fa-cloud Cloud Infrastructure"]
-        DB[("fa:fa-database Supabase PostgreSQL")]:::db
+    subgraph CLOUD ["Cloud Infrastructure"]
+        DB["🗄️ Supabase PostgreSQL"]:::db
     end
     
-    subgraph SERVICES ["fa:fa-globe Remote Services"]
-        GitHub["fa:fa-github GitHub REST API"]:::default
-        NPM["fa:fa-archive npm Registry API"]:::default
-        OSV["fa:fa-bug OSV Database API"]:::default
+    subgraph SERVICES ["Remote Services"]
+        GitHub["🐙 GitHub REST API"]:::default
+        NPM["📦 npm Registry API"]:::default
+        OSV["🐛 OSV Database API"]:::default
     end
     
     Router --> DB
