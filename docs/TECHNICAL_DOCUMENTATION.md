@@ -38,25 +38,25 @@ flowchart TD
     classDef engine fill:#1f1916,stroke:#e85d04,stroke-width:2px,color:#fffaeb;
     classDef db fill:#2f2520,stroke:#dca664,stroke-width:1.5px,color:#f8f6f5;
 
-    subgraph BROWSER ["💻 Browser Context"]
-        Client["React 19 Frontend"]:::browser
-        Router["TanStack Router / Start"]:::browser
+    subgraph BROWSER ["fa:fa-window-maximize Browser Context"]
+        Client["fa:fa-desktop React 19 Frontend"]:::browser
+        Router["fa:fa-random TanStack Router / Start"]:::browser
         Client --> Router
         Router --> Client
     end
     
-    subgraph USER_MACHINE ["🦙 Local User Machine"]
-        Ollama[("🦙 Ollama Engine")]:::db
+    subgraph USER_MACHINE ["fa:fa-laptop Local User Machine"]
+        Ollama[("fa:fa-robot Ollama Engine")]:::db
     end
     
-    subgraph CLOUD ["☁️ Cloud Infrastructure"]
-        DB[("🗄️ Supabase PostgreSQL")]:::db
+    subgraph CLOUD ["fa:fa-cloud Cloud Infrastructure"]
+        DB[("fa:fa-database Supabase PostgreSQL")]:::db
     end
     
-    subgraph SERVICES ["🌐 Remote Services"]
-        GitHub["🐙 GitHub REST API"]:::default
-        NPM["📦 npm Registry API"]:::default
-        OSV["🐛 OSV Database API"]:::default
+    subgraph SERVICES ["fa:fa-globe Remote Services"]
+        GitHub["fa:fa-github GitHub REST API"]:::default
+        NPM["fa:fa-archive npm Registry API"]:::default
+        OSV["fa:fa-bug OSV Database API"]:::default
     end
     
     Router --> DB
@@ -91,14 +91,14 @@ flowchart TD
     classDef db fill:#2f2520,stroke:#dca664,stroke-width:1.5px,color:#f8f6f5;
     classDef engine fill:#1f1916,stroke:#e85d04,stroke-width:2px,color:#fffaeb;
 
-    Repo[("🐙 GitHub Repository Tree")]:::db --> Parser["⚙️ Manifest & Source Parser"]:::default
+    Repo[("fa:fa-github GitHub Repository Tree")]:::db --> Parser["fa:fa-cogs Manifest & Source Parser"]:::default
     
-    subgraph STACK ["🛡️ Parallel Security Agent Stack"]
-        A1["🔍 Agent 1: MCP Server Scanner"]:::default
-        A2["🧪 Agent 2: Tool Poisoning Detector"]:::default
-        A3["🧠 Agent 3: Local AI Prompt Auditor"]:::default
-        A4["🧱 Agent 4: Orchestrator Config Auditor"]:::default
-        A5["📦 Agent 5: AI-stack CVE Checker"]:::default
+    subgraph STACK ["fa:fa-shield-alt Parallel Security Agent Stack"]
+        A1["fa:fa-search Agent 1: MCP Server Scanner"]:::default
+        A2["fa:fa-flask Agent 2: Tool Poisoning Detector"]:::default
+        A3["fa:fa-brain Agent 3: Local AI Prompt Auditor"]:::default
+        A4["fa:fa-cubes Agent 4: Orchestrator Config Auditor"]:::default
+        A5["fa:fa-bug Agent 5: AI-stack CVE Checker"]:::default
     end
     
     Parser --> A1
@@ -107,18 +107,18 @@ flowchart TD
     Parser --> A4
     Parser --> A5
     
-    A1 --> NPM[("📦 npm Registry API")]:::db
-    A3 --> Ollama[("🦙 Local Ollama Inference")]:::db
-    A5 --> OSV[("🐛 OSV Database API")]:::db
+    A1 --> NPM[("fa:fa-archive npm Registry API")]:::db
+    A3 --> Ollama[("fa:fa-robot Local Ollama Inference")]:::db
+    A5 --> OSV[("fa:fa-exclamation-triangle OSV Database API")]:::db
     
-    A1 --> Comp["⚖️ Compliance Tagging Engine"]:::engine
+    A1 --> Comp["fa:fa-balance-scale Compliance Tagging Engine"]:::engine
     A2 --> Comp
     A3 --> Comp
     A4 --> Comp
     A5 --> Comp
     
-    Comp --> Judge["⚖️ Local LLM Judge Verdicts"]:::engine
-    Judge --> Report[("📄 PDF Report & DB Commit")]:::db
+    Comp --> Judge["fa:fa-gavel Local LLM Judge Verdicts"]:::engine
+    Judge --> Report[("fa:fa-file-pdf PDF Report & DB Commit")]:::db
 ```
 <p align="center">Figure 2: Multi-Agent Analysis and Compliance Evaluation Pipeline</p>
 
