@@ -39,43 +39,67 @@ Enforces organizational security constraints. Blocks `http://` transport schemas
 
 ```mermaid
 flowchart TD
-    %% Define style variables matching cozy dark tan / gold theme
+    %% Define styles matching cozy dark tan / gold theme
     classDef default fill:#27201c,stroke:#dca664,stroke-width:1.5px,color:#f8f6f5;
-    classDef browser fill:#3a2e28,stroke:#dca664,stroke-width:2px,color:#fff;
+    classDef source fill:#3a2e28,stroke:#dca664,stroke-width:2px,color:#fff;
+    classDef agent fill:#221b18,stroke:#dca664,stroke-width:1.5px,stroke-dasharray: 4 4,color:#e7e2df;
     classDef engine fill:#1f1916,stroke:#e85d04,stroke-width:2px,color:#fffaeb;
     classDef db fill:#2f2520,stroke:#dca664,stroke-width:1.5px,color:#f8f6f5;
 
-    subgraph BROWSER ["Browser Context"]
-        Client["💻 React 19 Frontend"]:::browser
-        Router["⚙️ TanStack Router / Start"]:::browser
-        Client --> Router
-        Router --> Client
+    subgraph INPUT ["Input Source"]
+        Repo["🐙 GitHub Repository"]:::source
+        Parser["⚙️ Repo Tree Parser"]:::default
+        Repo --> Parser
     end
-    
-    subgraph USER_MACHINE ["Local User Machine"]
-        Ollama["🦙 Ollama Engine"]:::db
+
+    subgraph PIPELINE ["AI Compliance Pipeline"]
+        A1["🔍 Agent 1: MCP Server Scanner"]:::agent
+        A2["🧪 Agent 2: Tool Poisoning Detector"]:::agent
+        A3["🧠 Agent 3: Local Prompt Auditor"]:::agent
+        A4["🧱 Agent 4: Config Auditor"]:::agent
+        A5["📦 Agent 5: CVE Dependency Check"]:::agent
     end
-    
-    subgraph CLOUD ["Cloud Infrastructure"]
-        DB["🗄️ Supabase PostgreSQL"]:::db
+
+    Parser --> A1
+    Parser --> A2
+    Parser --> A3
+    Parser --> A4
+    Parser --> A5
+
+    subgraph EXTERNALS ["External Verification Ports"]
+        NPM["📦 npm Registry"]:::db
+        OLLAMA["🦙 Local Ollama Service"]:::db
+        OSV["🐛 OSV API"]:::db
     end
-    
-    subgraph SERVICES ["Remote Services"]
-        GitHub["🐙 GitHub REST API"]:::default
-        NPM["📦 npm Registry API"]:::default
-        OSV["🐛 OSV Database API"]:::default
+
+    A1 --> NPM
+    A3 --> OLLAMA
+    A5 --> OSV
+
+    subgraph COMPLIANCE ["Policy Validation"]
+        Engine{"⚖️ Compliance Engine"}:::engine
+        OWASP["🛡️ OWASP LLM Top 10"]:::default
+        NIST["📋 NIST AI Risk Framework"]:::default
+        
+        Engine --> OWASP
+        Engine --> NIST
     end
-    
-    Router --> DB
-    DB --> Router
-    Router --> GitHub
-    GitHub --> Router
-    Router --> Ollama
-    Ollama --> Router
-    Router --> NPM
-    NPM --> Router
-    Router --> OSV
-    OSV --> Router
+
+    A1 --> Engine
+    A2 --> Engine
+    A3 --> Engine
+    A4 --> Engine
+    A5 --> Engine
+
+    subgraph OUTPUT ["Outputs & Reporting"]
+        DB["🗄️ Supabase DB logs"]:::db
+        PDF["📄 PDF Auditor Report"]:::default
+        Console["💻 Live Console cards"]:::default
+    end
+
+    Engine --> DB
+    Engine --> PDF
+    Engine --> Console
 ```
 <p align="center">Figure 1: Ward Compliance System Architecture</p>
 
