@@ -20,15 +20,17 @@ export function AuthShell({ mode }: { mode: "signin" | "signup" }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setSuccessMessage(null);
     setLoading(true);
     try {
       if (isSignup) {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -37,31 +39,20 @@ export function AuthShell({ mode }: { mode: "signin" | "signup" }) {
           },
         });
         if (error) throw error;
+        
+        if (data?.session) {
+          navigate({ to: "/app" });
+        } else {
+          setSuccessMessage("Sign up successful! Please check your email to verify your account, or proceed to Sign In if verification is disabled.");
+        }
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        navigate({ to: "/app" });
       }
-      navigate({ to: "/app" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
-      setLoading(false);
-    }
-  }
-
-  async function onGoogle() {
-    setError(null);
-    setLoading(true);
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/app`,
-        },
-      });
-      if (error) throw error;
-    } catch (err: any) {
-      setError(err instanceof Error ? err.message : "Google sign-in failed");
       setLoading(false);
     }
   }
@@ -92,25 +83,9 @@ export function AuthShell({ mode }: { mode: "signin" | "signup" }) {
               </>
             )}
           </h1>
-          <p className="mt-3 text-[14px] text-muted-foreground">
+          <p className="mt-3 text-[14px] text-muted-foreground mb-8">
             {isSignup ? "Start scanning your repositories in minutes." : "Sign in to your workspace."}
           </p>
-
-          <button
-            type="button"
-            onClick={onGoogle}
-            disabled={loading}
-            className="mt-8 w-full h-11 rounded-full glass hairline border text-[14px] font-medium hover:bg-surface-2 transition flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            <GoogleIcon />
-            Continue with Google
-          </button>
-
-          <div className="my-6 flex items-center gap-3 text-[11px] uppercase tracking-[0.18em] text-muted-foreground/60">
-            <span className="h-px flex-1 bg-border" />
-            or
-            <span className="h-px flex-1 bg-border" />
-          </div>
 
           <form className="space-y-3" onSubmit={onSubmit}>
             {isSignup && (
@@ -121,6 +96,10 @@ export function AuthShell({ mode }: { mode: "signin" | "signup" }) {
 
             {error && (
               <p className="text-[12.5px] text-destructive">{error}</p>
+            )}
+
+            {successMessage && (
+              <p className="text-[12.5px] text-accent font-medium leading-relaxed">{successMessage}</p>
             )}
 
             <button
