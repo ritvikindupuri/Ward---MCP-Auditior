@@ -39,7 +39,7 @@ Enforces organizational security constraints. Blocks `http://` transport schemas
 
 Ward runs as a single **sequential** server-side pipeline (a TanStack Start server function), not a fan-out of parallel workers. A repo tree walk feeds five compliance agents that each run to completion — in order — before the next one starts. Every agent tags and saves its own findings to Supabase the instant it creates them, so there's no separate "mapping" step waiting at the end. Only one agent (Agent 3) calls the local LLM. Once all five agents finish, the scan is marked complete; generating the PDF report is a separate, on-demand action a user triggers afterward, not an automatic last stage.
 
-![Ward Execution Architecture](docs/images/ward-execution-workflow.png)
+![Ward Execution Architecture](https://imgur.com/ZGdbw4v)
 <p align="center">Figure 1: Ward's actual execution flow, agent-by-agent</p>
 
 ---
