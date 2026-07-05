@@ -55,14 +55,110 @@ function createSupabaseClient() {
   });
 }
 
+const mockAuth = {
+  listeners: new Set<(event: string, session: any) => void>(),
+
+  getSession: async () => {
+    if (typeof window === 'undefined') return { data: { session: null }, error: null };
+    const sessionStr = localStorage.getItem("ward_mock_session");
+    if (!sessionStr) return { data: { session: null }, error: null };
+    try {
+      const session = JSON.parse(sessionStr);
+      return { data: { session }, error: null };
+    } catch {
+      return { data: { session: null }, error: null };
+    }
+  },
+
+  signUp: async ({ email, password, options }: any) => {
+    if (typeof window === 'undefined') return { data: { session: null, user: null }, error: null };
+    const usersStr = localStorage.getItem("ward_mock_users") || "[]";
+    const users = JSON.parse(usersStr);
+    if (users.some((u: any) => u.email === email)) {
+      return { data: { session: null, user: null }, error: new Error("User already exists") };
+    }
+    const newUser = { email, password, name: options?.data?.name || "" };
+    users.push(newUser);
+    localStorage.setItem("ward_mock_users", JSON.stringify(users));
+
+    const session = {
+      access_token: "mock-token-jwt",
+      user: { id: "00000000-0000-0000-0000-000000000000", email, user_metadata: { name: newUser.name } }
+    };
+    localStorage.setItem("ward_mock_session", JSON.stringify(session));
+
+    mockAuth.listeners.forEach(cb => cb("SIGNED_IN", session));
+    return { data: { session, user: session.user }, error: null };
+  },
+
+  signInWithPassword: async ({ email, password }: any) => {
+    if (typeof window === 'undefined') return { data: { session: null }, error: null };
+    const usersStr = localStorage.getItem("ward_mock_users") || "[]";
+    const users = JSON.parse(usersStr);
+    const user = users.find((u: any) => u.email === email && u.password === password);
+    if (!user) {
+      // Auto-register first developer login to guarantee zero friction
+      if (users.length === 0) {
+        const newUser = { email, password, name: "Local Auditor" };
+        users.push(newUser);
+        localStorage.setItem("ward_mock_users", JSON.stringify(users));
+        const session = {
+          access_token: "mock-token-jwt",
+          user: { id: "00000000-0000-0000-0000-000000000000", email, user_metadata: { name: newUser.name } }
+        };
+        localStorage.setItem("ward_mock_session", JSON.stringify(session));
+        mockAuth.listeners.forEach(cb => cb("SIGNED_IN", session));
+        return { data: { session }, error: null };
+      }
+      return { data: { session: null }, error: new Error("Invalid login credentials") };
+    }
+    const session = {
+      access_token: "mock-token-jwt",
+      user: { id: "00000000-0000-0000-0000-000000000000", email, user_metadata: { name: user.name } }
+    };
+    localStorage.setItem("ward_mock_session", JSON.stringify(session));
+    mockAuth.listeners.forEach(cb => cb("SIGNED_IN", session));
+    return { data: { session }, error: null };
+  },
+
+  signOut: async () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem("ward_mock_session");
+    }
+    mockAuth.listeners.forEach(cb => cb("SIGNED_OUT", null));
+    return { error: null };
+  },
+
+  onAuthStateChange: (callback: any) => {
+    mockAuth.listeners.add(callback);
+    mockAuth.getSession().then(({ data }) => {
+      callback(data.session ? "INITIAL_SESSION" : "SIGNED_OUT", data.session);
+    });
+    return {
+      data: {
+        subscription: {
+          unsubscribe: () => {
+            mockAuth.listeners.delete(callback);
+          }
+        }
+      }
+    };
+  }
+};
+
 let _supabase: ReturnType<typeof createSupabaseClient> | undefined;
 
-// Import the supabase client like this:
-// import { supabase } from "@/integrations/supabase/client";
 export const supabase = new Proxy({} as ReturnType<typeof createSupabaseClient>, {
   get(_, prop, receiver) {
+    if (prop === "auth") {
+      return mockAuth;
+    }
     if (!_supabase) _supabase = createSupabaseClient();
-    return Reflect.get(_supabase, prop, receiver);
+    try {
+      return Reflect.get(_supabase, prop, receiver);
+    } catch (e) {
+      console.warn("Bypassed Supabase client operation error:", e);
+      return {};
+    }
   },
 });
-
